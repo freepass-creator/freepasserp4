@@ -123,9 +123,13 @@ const VALIDATED_ENGINES = [
    *   F01/F86 탭 문패는 맨 앞 상품리스트만 갱신시각·대수를, 나머지는 탭명·대수만 표시한다.
    */
   '0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e',
+  '6d9375a0d7fcf8e00d41712a3a154c6b1163f032', // shared F01/F86 presentation; online readback 35576634024
+  'a1c47fe21026405f82cde8ba72b17fd55d314f63', // fixed widths plus Oplus/Sonogong supplementary reference parity gate
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
+assert(/audit-supplementary-inventory-reference\.mts --snapshot=tmp\/erp5-sales-publish\.json[\s\S]*동일 스냅샷으로 판매시트 게시/.test(workflow),
+  '오플·손오공 보완참조 게이트는 F01/F86 쓰기 직전에 실행돼야 합니다.');
 const validatedEngine = pinnedEngine as string;
 assert(workflow.includes('GOOGLE_CLOUD_PROJECT: freepasserp5'), 'production target은 freepasserp5여야 합니다.');
 assert(workflow.includes('scripts/ingest-all-suppliers.mts'), 'production workflow가 검증된 일괄수집기를 호출하지 않습니다.');

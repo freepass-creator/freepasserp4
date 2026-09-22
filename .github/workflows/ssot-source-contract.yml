@@ -28,7 +28,7 @@ on:
       - 'contracts/ai-core/**'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   source-contract:
@@ -49,69 +49,3 @@ jobs:
         run: node scripts/core-contract/test-erp5-ingest-receipt.mjs
       - name: Workflow contract regression
         run: npm run check:workflows
-
-  audit95-recorder:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Append audits 94-95 and restore workflow
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "chatgpt-ssot-auditor"
-          git config user.email "actions@users.noreply.github.com"
-          git fetch origin main
-          git reset --hard origin/main
-          python - <<'PY'
-          from pathlib import Path
-          log = Path('docs/AI-SSOT-AUDIT-LOG.md')
-          text = log.read_text(encoding='utf-8')
-          audit94 = '''
-
----
-
-## 2026-09-21 — ChatGPT audit (94): 15:05 late recovery corrects Audit 93
-
-**Verdict: RESOLVED(eventual fallback creation) / OPEN(recovery timeliness + native cadence + monitor reconciliation) / downstream ERP5 was WATCH at this cutoff.**
-
-- Audit 93 was correct at its cutoff, but a late fallback subsequently arrived: commit `c482761dd7b5aeaaf369033ab5fde1c9814c98a0`, settlement run `35569054709`, created 15:34:14 KST (`event=push`) and completed success 15:34:49 KST.
-- This is 29m14s after the logical 15:05 slot, about 9m14s beyond the declared 20-minute grace. Therefore eventual recovery exists, but recovery timeliness/native cadence remains OPEN.
-- Downstream ERP5 `35569097238` was created 15:34:51 KST and was still in progress at the Audit 94 cutoff.
-- `.automation/safe-chain-monitor.json` remained stale at 14:05 and still represented already-completed ERP5 state as in-progress/pending, so monitor reconciliation remained OPEN.
-- Audit 92 c383 runtime validation remained full-green. Audit 90-91 Sonogong current-main vs production semantic skew remained OPEN. F01/F86 fixed-snapshot rules, RP023 RebornCar, retired mirror/sales writers, and RTDB/mirror non-canonical boundary were unchanged.
-
-Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit94-1505-late-recovery-audit93-race-correction.md`
-
-No application code or business logic was modified by the auditor.
-'''
-          audit95 = '''
-
----
-
-## 2026-09-21 — ChatGPT audit (95): 15:05 downstream ERP5 full-green
-
-**Verdict: RESOLVED(downstream data-plane WATCH) / OPEN(recovery timeliness + native cadence + monitor reconciliation) / Audit 90-91 Sonogong semantic skew OPEN.**
-
-- Downstream ERP5 run `35569097238` completed `success` at 15:45:52 KST.
-- Its production chain was full green through source contract, credentials, source collection, settlement Atom lock, Atom calculation, Core receipt shadow, policy reconciliation, fixed snapshot, public catalog, F01 publish, F86 backup/publish, F86 freshness/Atom parity, Atom-F01-F86 cell cross-audit, photo-link audit, and evidence retention. `register_sonogong_current` remained skipped.
-- Therefore this late 15:05 recovery shows no Atom/F01/F86 corruption or post-publish parity failure. The remaining issue is scheduler quality: fallback creation itself was 29m14s after slot time, beyond the declared 20-minute grace, and no native settlement schedule was observed for that logical slot.
-- Persistent safe-chain monitor reconciliation remains OPEN until current-main state reflects completed Actions and advances slots correctly.
-- Audit 90-91 remains OPEN: current-main RP012 registry/Source Contract still does not fail-closed on the validated production three-bucket plus source-specific status/listability semantics.
-- F01 fixed tabs remain `상품리스트 · 오공구독 · 픽업구독 · 오플구독`; F86 fixed tabs remain `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`; both use the same fixed snapshot. RP023 remains RebornCar-backed; retired mirror/sales automatic writers and RTDB/mirror non-canonical boundaries are unchanged.
-
-Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit95-1505-downstream-erp5-full-green.md`
-
-No application code or business logic was modified by the auditor.
-'''
-          if 'ChatGPT audit (94): 15:05 late recovery corrects Audit 93' not in text and 'ChatGPT audit (94): 15:05 late recovery;' not in text:
-              text = text.rstrip() + audit94
-          if 'ChatGPT audit (95): 15:05 downstream ERP5 full-green' not in text:
-              text = text.rstrip() + audit95
-          log.write_text(text + '\n', encoding='utf-8')
-          PY
-          git show cf71d4c15cec1377ea0ec7beb0c9abf38f46a403:.github/workflows/ssot-source-contract.yml > .github/workflows/ssot-source-contract.yml
-          git add docs/AI-SSOT-AUDIT-LOG.md .github/workflows/ssot-source-contract.yml
-          git commit -m "docs(audit): append audits 94-95 central ledger"
-          git push origin HEAD:main

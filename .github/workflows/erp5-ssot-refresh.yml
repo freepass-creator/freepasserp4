@@ -4,6 +4,18 @@ name: ERP5 SSOT 원천 최신화(매시간)
 # 검증된 기존 원자의 가변값과 상태만 자동 갱신하며 새 차번은 후보로 보고한다.
 # 한 회차가 읽은 ERP5 스냅샷 하나로 판매시트를 발행한다.
 on:
+  schedule:
+    # 월~토 KST 09:17~19:17. GitHub schedule 지연은 실행 증거로 별도 감시한다.
+    - cron: '17 0-10 * * 1-6'
+  # 정산 접수→원장 성공 뒤 동일 canonical writer를 이어서 실행한다.
+  workflow_run:
+    workflows: ["정산 접수→원장(1시간)"]
+    types: [completed]
+  # native schedule 누락 시 승인된 safe-chain monitor가 이 heartbeat만 전진시킨다.
+  push:
+    branches: [main]
+    paths:
+      - '.automation/heartbeats/erp5-ssot-refresh.txt'
   workflow_dispatch:
     inputs:
       apply:
@@ -103,7 +115,8 @@ jobs:
           #   맨 앞 상품리스트만 갱신시각·대수, 나머지는 탭명·대수다.
           #   손오공상품은 RP012 중고렌트+오공구독, 픽업구독은 T카 외부재고로 분리하며 같은
           #   assignSalesTab SSOT를 발행기·감사·회귀검사가 공유한다. 손오공 원천은 기존대로 ERP API뿐이다.
-          ref: 0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e
+          # F01/F86 presentation shares freepass-data 4005c5f; fixed-width regression and readback are mandatory.
+          ref: a1c47fe21026405f82cde8ba72b17fd55d314f63
       - name: Core receipt helper checkout
         uses: actions/checkout@v4
         with:
@@ -184,7 +197,7 @@ jobs:
           node .core-contract-helper/scripts/core-contract/build-erp5-ingest-receipt.mjs \
             --log=tmp/core-contract/erp5-ingest.log \
             --out=tmp/core-contract/erp5-ingest-receipt.json \
-            --engine-revision=0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e \
+            --engine-revision=a1c47fe21026405f82cde8ba72b17fd55d314f63 \
             --run-id=${{ github.run_id }} \
             --run-attempt=${{ github.run_attempt }} \
             --outcome=${{ steps.ingest.outcome }} \
@@ -219,6 +232,12 @@ jobs:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/verify-whitelabel-publication.mts --snapshot=tmp/erp5-sales-publish.json --write-receipt
+      - name: 오플·손오공 보완참조 대조
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+          GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
+        run: npx tsx scripts/audit-supplementary-inventory-reference.mts --snapshot=tmp/erp5-sales-publish.json
       - name: 동일 스냅샷으로 판매시트 게시
         id: f01
         if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
