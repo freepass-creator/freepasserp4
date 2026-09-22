@@ -1,4 +1,5 @@
 import spec from '../../vendor/freepass-data/contracts/f01-f86-sheet-spec.v1.json';
+import { isDepositColumn, isRentColumn } from './sales-sheet-format';
 export const SHEET_PRESENTATION = spec;
 export type Workbook = keyof typeof spec.workbooks;
 
@@ -44,8 +45,11 @@ export function presentationFormatRequests(workbook: Workbook, sheetId: number, 
     const width = tabWidths?.[header] ?? (spec.appearance.columnWidthsPx as Record<string, number>)[header];
     const range = { sheetId, dimension: 'COLUMNS', startIndex: index, endIndex: index + 1 };
     if (width) requests.push({ updateDimensionProperties: { range, properties: { pixelSize: width }, fields: 'pixelSize' } });
-    const months = /^(\d+)\s*개월/.exec(header);
-    if (workbook === 'F86' && (header === '단기보증' || (months && Number(months[1]) < spec.appearance.F86MinimumVisibleFeeMonths))) requests.push({ updateDimensionProperties: { range, properties: { hiddenByUser: true }, fields: 'hiddenByUser' } });
+    if (workbook === 'F86' && (isDepositColumn(header) || isRentColumn(header))) {
+      const months = /^(\d+)\s*개월/.exec(header);
+      const isVisibleLongTermRent = !!months && Number(months[1]) >= spec.appearance.F86MinimumVisibleFeeMonths;
+      requests.push({ updateDimensionProperties: { range, properties: { hiddenByUser: !isVisibleLongTermRent }, fields: 'hiddenByUser' } });
+    }
   });
   return requests;
 }

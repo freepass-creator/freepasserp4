@@ -15,7 +15,7 @@ const at = '2026-09-21T07:28:00Z';
 for (const workbook of ['F01', 'F86'] as const) {
   const sheets = spec.primaryTabs.map((tab, index) => {
     const sheetId = spec.workbooks[workbook].primarySheetIds[index];
-    const headers = ['차량번호', '차명(원문)', '옵션(원문)', '세부트림', '반납형보증금', '인수형보증금', '12개월', '24개월'];
+    const headers = ['차량번호', '차명(원문)', '옵션(원문)', '세부트림', '반납형보증금', '인수형보증금', '12개월 반납형', '24개월 반납형'];
     const title = workbook === 'F01' ? salesPublishedTabTitle(tab.label, 1, '09.21 16:28') : f86TabTitle(tab.label, 1, '09.21 16:28', true);
     const sheet: any = { properties: { sheetId, title, index, gridProperties: { rowCount: 2, columnCount: headers.length } }, data: [{ rowData: [{ values: headers.map(stringValue => ({ userEnteredValue: { stringValue } })) }, { values: [{ userEnteredValue: { stringValue: `FIXTURE${index}` } }] }], columnMetadata: headers.map(() => ({ pixelSize: 90 })) }], basicFilter: { range: { sheetId, startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: headers.length } } };
     for (const request of presentationFormatRequests(workbook, sheetId, tab.label, headers)) {
@@ -29,6 +29,12 @@ for (const workbook of ['F01', 'F86'] as const) {
     assert.equal(sheet.data[0].columnMetadata[3].pixelSize, 100);
     assert.equal(sheet.data[0].columnMetadata[4].pixelSize, tab.key === 'pickup' ? 180 : 90);
     assert.equal(sheet.data[0].columnMetadata[5].pixelSize, tab.key === 'pickup' ? 180 : 90);
+    if (workbook === 'F86') {
+      assert.equal(sheet.data[0].columnMetadata[4].hiddenByUser, true, 'F86 must hide return-form deposits');
+      assert.equal(sheet.data[0].columnMetadata[5].hiddenByUser, true, 'F86 must hide acquisition-form deposits');
+      assert.equal(sheet.data[0].columnMetadata[6].hiddenByUser, true, 'F86 must hide rent shorter than 24 months');
+      assert.equal(sheet.data[0].columnMetadata[7].hiddenByUser, false, 'F86 must show long-term rent from 24 months');
+    }
     return sheet;
   });
   requirePrimaryBindings(workbook, sheets.map(s => s.properties));
