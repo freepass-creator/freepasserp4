@@ -77,6 +77,9 @@ const api = async (u: string, init?: RequestInit): Promise<any> => {
  */
 const mark = salesPublishTabMark(publishSnapshot);
 const plan = await buildF86Plan({ snapshot: publishSnapshot, mark, channel });
+if (RETRO && plan.tabs.some((tab) => tab.company === '종합' || /^종합(?:\s|$)/.test(tab.title))) {
+  throw new Error('HOLD: F86에는 「종합」 탭을 만들 수 없다 — 상품리스트/손오공상품/픽업구독/오플구독 뒤에 회사명 탭만 허용한다.');
+}
 console.log(`  공급사 이름 ${plan.nameByProvider.size}개 · 전용계좌 ${plan.acctCount}개 (공용 문맥)`);
 if (plan.inventoryViolation) { console.error(`  ⛔ 재고 계약 위반 — ${plan.inventoryViolation}`); process.exit(1); }
 if (plan.invalidPlates.length) {

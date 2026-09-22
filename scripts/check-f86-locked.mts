@@ -46,9 +46,8 @@ const feeSlot = (heads: string[]) => heads.slice(heads.indexOf('Km') + 1, heads.
 /* ── ⑤ 굳힌 양식 — 탭 차례 · 탭별 요금 칸 · 칸 폭 ─────────────────
    사장님 2026-09-16 「하허호 시트 양식을 굳히라고 … 또 매번 달라지지 말고」 — 데이터 따라 흔들리던 셋을 표로 박았다.   */
 const L5 = ['장기보증', '24개월', '36개월', '48개월', '60개월'];
-const ORDER = ['종합', '손오공', '이안카', '아이카', '오토플러스', '빌린카', '아이언', '우리캐피탈', '케이에이치', '에스에이', '스타스카이', '제이앤제이', '웰릭스', '에코', '경진', '리더스', '마음카', '센트로', '렌트존'];
+const ORDER = ['손오공', '이안카', '아이카', '오토플러스', '빌린카', '아이언', '우리캐피탈', '케이에이치', '에스에이', '스타스카이', '제이앤제이', '웰릭스', '에코', '경진', '리더스', '마음카', '센트로', '렌트존'];
 const FEES: Record<string, string[]> = {
-  종합: L5,
   손오공: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형', '12개월 인수형', '24개월 인수형'],
   이안카: L5, 아이카: ['장기보증', '36개월', '48개월'],
   오토플러스: ['보증금', '12개월 2만km', '12개월 3만km', '18개월 2만km', '18개월 3만km', '24개월 2만km', '24개월 3만km', '36개월 2만km', '36개월 3만km'],
@@ -62,7 +61,7 @@ must(J(Object.keys(RETRO_TAB_FEES).sort()) === J(Object.keys(FEES).sort()) && Ob
   '굳힌 탭별 요금 칸 표가 바뀌었습니다.', `${SKIN} · RETRO_TAB_FEES — ${MANUAL} 5`);
 must(RETRO_TAB_ORDER.every((k) => !!RETRO_TAB_FEES[k]) && Object.keys(RETRO_TAB_FEES).every((k) => RETRO_TAB_ORDER.includes(k)), '탭 차례 표와 요금 칸 표의 회사가 서로 다릅니다.', `${SKIN} — ${MANUAL} 5`);
 must(retroTabLayout('표에없는회사') === null, '표에 없는 회사도 칸을 만들어 줍니다 — 멈춰야 합니다.', `${SKIN} · retroTabLayout — ${MANUAL} 5`);
-must(J(feeSlot((retroTabLayout('아이카') || []).map((c) => c.head))) === J(['장기보증', '36개월', '48개월']) && J(feeSlot((retroTabLayout('종합') || []).map((c) => c.head))) === J(L5),
+must(J(feeSlot((retroTabLayout('아이카') || []).map((c) => c.head))) === J(['장기보증', '36개월', '48개월']) && retroTabLayout('종합') === null,
   '탭 칸이 «굳힌 표»에서 안 나옵니다.', `${SKIN} · retroTabLayout — ${MANUAL} 5`);
 const W: Record<string, number> = { 공급사명: 82, 세부모델: 180, 트림: 342, 옵션: 857, 전용계좌: 292, 장기보증: 75, '36개월': 75, '12개월 반납형': 108, '12개월 2만km': 101, '보증금 반납형': 233, 보증금: 239 };
 must(Object.entries(W).every(([k, v]) => retroWidthOf(k) === v), `굳힌 칸 폭이 바뀌었습니다: ${Object.keys(W).map((k) => `${k} ${retroWidthOf(k)}`).join(' · ')}`, `${SKIN} · RETRO_WIDTH — ${MANUAL} 5`);
@@ -84,6 +83,10 @@ must(f86BaseTabOf({ provider_company_code: 'RP012', product_type: '중고렌트'
 must(J(F86_BASE_TABS.map((t) => f86TabTitle(t, 123, '09.21 13:00', true))) === J([
   '09.21 13:00 상품리스트 123대', '손오공상품 123대', '픽업구독 123대', '오플구독 123대',
 ]), 'F86 탭 문패가 「상품리스트 시각·대수 / 나머지 탭명·대수」 규칙과 다릅니다.', `${MANUAL} 1 · f86TabTitle`);
+must(!read('lib/domain/channel-retro-skin.ts').includes('RETRO_SUMMARY_TAB')
+  && retroTabLayout('종합') === null
+  && /F86에는 「종합」 탭을 만들 수 없다/.test(read('scripts/build-channel-supplier-sheet.mts')),
+  '폐기한 「종합」 탭 생성 경로가 남았습니다 — F86은 기본 4탭 뒤 회사명 탭만 허용합니다.', `${SKIN} · build-channel-supplier-sheet — ${MANUAL} 1`);
 
 /* ── ④ 겉 — 레트로 ───────────────────────────────────────────── */
 must(RETRO_FONT === 'Malgun Gothic' && RETRO_SIZE === 9 && RETRO_ROW_PX === 21, `글꼴·크기·줄 높이가 바뀌었습니다: ${RETRO_FONT} ${RETRO_SIZE}pt · 줄 ${RETRO_ROW_PX}`, `${SKIN} — ${MANUAL} 4`);

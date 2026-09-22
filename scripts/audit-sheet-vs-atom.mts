@@ -32,7 +32,7 @@ import { compareSalesRows, loadSalesRowContext, makeCell, tabOf } from '../lib/d
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { atomDisplayText } from '../lib/domain/missing-value-display';
-import { retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
+import { retroUsesColumn, retroSameValue, retroHasValue } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import { compareF86Rows, F86_BASE_TABS, f86BaseTabOf, f86TabTitle } from '../lib/server/channel-f86-plan';
 
@@ -276,98 +276,6 @@ let f86줄 = 0;
     const expected = 실릴차.filter((atom) => f86BaseTabOf(atom) === title).sort(compareF86).map((atom) => K(atom.car_number));
     const actual = f86Order.get(title) || [];
     if (JSON.stringify(actual) !== JSON.stringify(expected)) f86OrderViolations.push(`${title}: 실제 ${actual.length}줄 ↔ 기대 ${expected.length}줄`);
-  }
-}
-/** 과거 종합+회사별 감사 규격은 기록으로 남기되 실행하지 않는다. */
-if (false) {
-  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${F86}?fields=sheets.properties.title`);
-  const 모든탭: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title)).filter((t: string) => !/공지|안내|이 시트/.test(t));
-  /** 「종합」은 회사 탭이 아니다 — 같은 차가 회사 탭과 두 번 서는 게 정상이라 아래에서 따로 본다. */
-  const 종합제목 = 모든탭.find((t) => t.startsWith(`${RETRO_SUMMARY_TAB} `)) || '';
-  const titles = 모든탭.filter((t) => t !== 종합제목);
-  /** ★탭 차례 = «굳힌 표»(RETRO_TAB_ORDER) — 대수로 섞이지 않는다(2026-09-16). */
-  {
-    const 실제 = 모든탭.map((t) => t.split(' ')[0]);
-    const 기대 = [...실제].sort((a, b) => retroTabRank(a) - retroTabRank(b));
-    if (JSON.stringify(실제) !== JSON.stringify(기대)) f86TabShapeViolations.push(`탭 차례가 굳힌 표와 다르다: ${실제.join('·')}`);
-  }
-  const expectedCompanies = new Map<string, number>();
-  for (const row of f01) {
-    if (!f86대상차.has(row.car)) continue;
-    const company = channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider);
-    expectedCompanies.set(company, (expectedCompanies.get(company) || 0) + 1);
-  }
-  /** ★2026-09-16 — 탭 이름 규칙은 발행기와 «같은 함수»로 짓는다(회사 탭엔 시각을 안 박는다). */
-  const expectedTitles = new Map([...expectedCompanies].map(([company, count]) => [f86TabTitle(company, count, f86Mark, true), company]));
-  const channelColumns: string[] = [];
-  for (const prefix of SALES_PUBLISHED_TAB_PREFIXES) for (const raw of salesPublishedColumns(prefix)) {
-    const column = channelColumnName(raw);
-    if (column && !channelColumns.includes(column)) channelColumns.push(column);
-  }
-  const expectedHeaders = new Map<string, string[]>();
-  for (const company of expectedCompanies.keys()) {
-    /** ★2026-09-16 «굳힌 양식» — 기대 머리글은 데이터가 아니라 발행기와 같은 표(`retroTabLayout`)에서. */
-    expectedHeaders.set(company, (retroTabLayout(company) || []).map((c) => c.head));
-  }
-  if (f86Mark) {
-    for (const title of titles) if (!expectedTitles.has(title)) f86TabShapeViolations.push(`예상 밖 탭: ${title}`);
-    for (const title of expectedTitles.keys()) if (!titles.includes(title)) f86TabShapeViolations.push(`빠진 탭: ${title}`);
-  }
-  const grids = await readTabs(F86, titles);
-  for (const t of titles) {
-    const company = expectedTitles.get(t) || '';
-    const grid = grids.get(t) || [];
-    const hdr = grid[0] || []; const ci = hdr.indexOf('차량번호');
-    const expectedHeader = expectedHeaders.get(company);
-    if (expectedHeader && JSON.stringify(hdr) !== JSON.stringify(expectedHeader)) {
-      f86HeaderViolations.push(`${company}: 실제 ${hdr.length}열 ↔ 기대 ${expectedHeader.length}열`);
-    }
-    if (ci < 0) continue;
-    for (const r of grid.slice(1)) {
-      const car = K(r[ci]);
-      if (!car) { if (r.some((value) => S(value))) f86BlankPlateRows.push(`${company || t}: ${r.filter((value) => S(value)).slice(0, 3).join(' | ')}`); continue; }
-      f86Order.set(company, [...(f86Order.get(company) || []), car]);
-      f86줄++;
-      f86Counts.set(car, (f86Counts.get(car) || 0) + 1);
-      const cells: Record<string, string> = {};
-      /** 옛 머리글(차종분류·트림·21세…)을 F01 칸 이름으로 되돌려 값을 맞춰 본다. */
-      hdr.forEach((h, i) => { if (S(h)) cells[retroHeadToColumn(S(h))] = S(r[i]); });
-      f86.set(car, { company, cells });
-    }
-  }
-  for (const company of expectedCompanies.keys()) {
-    const expected = 실릴차
-      .filter((atom) => f86대상차.has(K(atom.car_number)) && channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider) === company)
-      .sort(compareF86)
-      .map((atom) => K(atom.car_number));
-    const actual = f86Order.get(company) || [];
-    if (JSON.stringify(actual) !== JSON.stringify(expected)) f86OrderViolations.push(`${company}: 실제 ${actual.length}줄 ↔ 기대 ${expected.length}줄`);
-  }
-  /**
-   * ★「종합」 탭 — 손오공·오토플러스 뺀 회사 차가 같은 차례·같은 칸으로 섰는가.
-   *   값은 회사 탭에서 이미 F01 과 맞췄으므로, 여기서는 차 목록·차례·머리글·줄마다 공급사명이 회사 탭과 같은지를 본다.
-   */
-  {
-    const 기대차 = 실릴차.filter((atom) => f86대상차.has(K(atom.car_number)) && inRetroSummary(channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider))).sort(compareF86);
-    const 기대제목 = f86TabTitle(RETRO_SUMMARY_TAB, 기대차.length, f86Mark, true);
-    if (!종합제목) f86TabShapeViolations.push(`빠진 탭: ${기대제목}`);
-    else {
-      if (f86Mark && 종합제목 !== 기대제목) f86TabShapeViolations.push(`종합 탭 이름: ${종합제목} ↔ 기대 ${기대제목}`);
-      const grid = (await readTabs(F86, [종합제목])).get(종합제목) || [];
-      const hdr = grid[0] || [];
-      const 기대머리 = (retroTabLayout(RETRO_SUMMARY_TAB) || []).map((c) => c.head);
-      if (JSON.stringify(hdr) !== JSON.stringify(기대머리)) f86HeaderViolations.push(`종합: 실제 ${hdr.length}열 ↔ 기대 ${기대머리.length}열`);
-      const ci = hdr.indexOf('차량번호'); const ni = hdr.indexOf('공급사명');
-      const 실제 = ci < 0 ? [] : grid.slice(1).map((r) => K(r[ci])).filter(Boolean);
-      const 기대 = 기대차.map((atom) => K(atom.car_number));
-      if (JSON.stringify(실제) !== JSON.stringify(기대)) f86OrderViolations.push(`종합: 실제 ${실제.length}줄 ↔ 기대 ${기대.length}줄`);
-      for (const r of ci < 0 ? [] : grid.slice(1)) {
-        const car = K(r[ci]); if (!car) continue;
-        const 회사 = f86.get(car)?.company || '';
-        if (회사 !== S(r[ni])) f86WrongCompany.push(`종합 ${car} 공급사명「${S(r[ni])}」↔ 회사 탭 ${회사 || '없음'}`);
-      }
-      console.log(`  「종합」 ${실제.length}줄 (손오공·오토플러스 뺌) · 기대 ${기대.length}줄`);
-    }
   }
 }
 const f86Duplicates = [...f86Counts].filter(([, count]) => count > 1);

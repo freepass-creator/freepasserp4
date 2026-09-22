@@ -139,15 +139,7 @@ export const retroHeadToColumn = (head: string): string => {
 export const retroUsesColumn = (name: string): boolean =>
   (요금칸(name) && !RETRO_SHORT.includes(name)) || RETRO_LAYOUT.some((x) => x.src.kind === 'col' && x.src.name === name);
 
-/**
- * ★★**「종합」 탭 = 렌트사 규격 차만 한 장에** — 사장님 2026-09-15 「종합탭은 거기에 맞춰서 해보자」
- *   (앞서 같은 날 「종합 시트에는 손오공 오플은 빼고, 종합 시트는 그냥 렌트사 규격으로만 들어가는 거지 · 손오공 오플은 그냥 있는 거고」).
- *   ⇒ 손오공·오토플러스(자기 요금 규격 = 커스텀 대여료)는 빼고, 나머지 회사 차를 같은 레트로 칸(`retroLayout`)으로 모은다.
- *   맨 앞 「공급사명」이 줄마다 회사를 말한다. 두 회사는 제 탭에 그대로 있다. 탭 자리 = 공지사항 바로 뒤.
- */
-export const RETRO_SUMMARY_TAB = '종합';
-export const RETRO_SUMMARY_EXCLUDE: readonly string[] = ['손오공', '오토플러스'];
-export const inRetroSummary = (company: string): boolean => !!company && !RETRO_SUMMARY_EXCLUDE.includes(company);
+/** 「종합」은 폐기됐다. 실제 발행 탭은 기본 4탭과 회사명 탭뿐이며 이 표에도 넣지 않는다. */
 
 /**
  * ★★★**«굳힌 양식» — 매 회차 같다** (사장님 2026-09-16 「하허호 시트 양식을 굳히라고 … 또 매번 달라지지 말고」).
@@ -160,13 +152,12 @@ export const inRetroSummary = (company: string): boolean => !!company && !RETRO_
  *   표 값 = 2026-09-16 운영 F86 실측 — 요금 칸은 그날 칸 그대로 · 폭은 탭들 중 가장 넓은 값.
  */
 export const RETRO_TAB_ORDER: readonly string[] = [
-  '종합', '손오공', '이안카', '아이카', '오토플러스', '빌린카', '아이언', '우리캐피탈', '케이에이치',
+  '손오공', '이안카', '아이카', '오토플러스', '빌린카', '아이언', '우리캐피탈', '케이에이치',
   '에스에이', '스타스카이', '제이앤제이', '웰릭스', '에코', '경진', '리더스', '마음카', '센트로', '렌트존',
 ];
 export const retroTabRank = (tab: string): number => { const i = RETRO_TAB_ORDER.indexOf(tab); return i < 0 ? 999 : i; };
 const 장기5: readonly string[] = ['장기보증', '24개월', '36개월', '48개월', '60개월'];
 export const RETRO_TAB_FEES: Record<string, readonly string[]> = {
-  종합: 장기5,
   손오공: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형', '12개월 인수형', '24개월 인수형'],
   이안카: 장기5,
   아이카: ['장기보증', '36개월', '48개월'],
@@ -295,7 +286,6 @@ function fitWidth(name: string, values: string[]): number {
  *   옛 시트에 탭 색이 없던 회사·그때 없던 회사(이안카·오토플러스·마음카)는 «색 없음».
  */
 const RETRO_TAB_COLOR: Record<string, string> = {
-  종합: '00FFFF',
   손오공: '0000FF', 아이카: 'FF0000', 케이에이치: 'B7E1CD', KH: 'B7E1CD', 아이언: 'FF00FF', 퍼시픽: 'E4DCD3',
   스타스카이: '3D85C6', 스타: '3D85C6', 웰릭스: '0000FF', 경진: 'FFFF00', 센트로: '0000FF', 에이스: '0000FF',
   우리캐피탈: 'FF00FF', 빌린카: 'B7E1CD', 엘씨렌트: 'B7E1CD', 스위치플랜: '0000FF', 스위치: '0000FF',
