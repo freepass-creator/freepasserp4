@@ -125,6 +125,7 @@ const VALIDATED_ENGINES = [
   '0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e',
   '6d9375a0d7fcf8e00d41712a3a154c6b1163f032', // shared F01/F86 presentation; online readback 35576634024
   '716aa5fe66a8f3512668bcaff4c769c2fe7f2775', // fixed widths, supplementary parity gate, and F86 long-term-rent-only presentation
+  'c8344a420b0d4a337ffb2a8d6c550380830dd4ae', // supplementary backup sheets validate approximate counts; identity drift remains evidence only
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
