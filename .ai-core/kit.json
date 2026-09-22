@@ -1,0 +1,44 @@
+{
+  "schema": "ai-core-starter-kit/v1",
+  "core_revision": "a73b9616592f71d0aea81d297ac48ffa273586dd",
+  "generated_at": "2026-09-22T00:00:50.443Z",
+  "task": "AI Core 규격과 전체 프로젝트 지식을 설치한다",
+  "track": "development",
+  "target": {
+    "project_id": "freepasserp4",
+    "repository": "freepass-creator/freepasserp4",
+    "branch": "codex/ai-core-starter-kit-20260922",
+    "revision": "cfce771fc47d8133a7eda724d41beb014400f1d5",
+    "registry_revision": "06e18ff52e14ec4e3670361d89a873913be4f51b",
+    "root": "C:\\dev\\freepasserp4",
+    "display_name": "freepasserp4"
+  },
+  "files": [
+    {
+      "path": "standards/AI_WORKING_STANDARD.md",
+      "sha256": "1b45074f5ffaaf76f61bed90af525ab19290720c1400af5d0506ace9e102b3a8",
+      "source": "docs/AI_WORKING_STANDARD.md"
+    },
+    {
+      "path": "standards/AI_ACADEMY_CURRICULUM.md",
+      "sha256": "9781eed9023ec5beeb691eb5694dd6bd35f30a33cb7aa7fa02d982562af8947a",
+      "source": "docs/AI_ACADEMY_CURRICULUM.md"
+    },
+    {
+      "path": "standards/DEVELOPMENT_RUNTIME.md",
+      "sha256": "8030f571e45b4be8fcb725cca5cda93bcdeefda30b1f9987a5648f7665630f68",
+      "source": "docs/DEVELOPMENT_RUNTIME.md"
+    },
+    {
+      "path": "standards/shared-services/SHARED_RELEASE_GATE.md",
+      "sha256": "098ba568b40d6fcd7c5830e7a024048a52ad156ed7a6f0374af2a9ac545eb03b",
+      "source": "docs/shared-services/SHARED_RELEASE_GATE.md"
+    }
+  ],
+  "verification": {
+    "install": "npm ci",
+    "test": null,
+    "build": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build"
+  },
+  "reuse_policy": "New assets require a recorded reuse decision before creation."
+}
