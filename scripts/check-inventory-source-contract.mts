@@ -125,12 +125,12 @@ const VALIDATED_ENGINES = [
   '0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e',
   '6d9375a0d7fcf8e00d41712a3a154c6b1163f032', // shared F01/F86 presentation; online readback 35576634024
   '716aa5fe66a8f3512668bcaff4c769c2fe7f2775', // fixed widths, supplementary parity gate, and F86 long-term-rent-only presentation
-  'c8344a420b0d4a337ffb2a8d6c550380830dd4ae', // supplementary backup sheets validate approximate counts; identity drift remains evidence only
+  '298e9f3fa514d4d9bc50f77e6a88a26c395583db', // legacy supplementary sheets are observation-only; new sources control publication
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
 assert(/audit-supplementary-inventory-reference\.mts --snapshot=tmp\/erp5-sales-publish\.json[\s\S]*동일 스냅샷으로 판매시트 게시/.test(workflow),
-  '오플·손오공 보완참조 게이트는 F01/F86 쓰기 직전에 실행돼야 합니다.');
+  '오플·손오공 보완참조 관측은 F01/F86 쓰기 직전에 기록돼야 합니다.');
 const ingestStep = workflow.match(/- name: 원천에서 ERP5 현재 원자 계산[\s\S]*?(?=\n      - name:)/)?.[0] ?? '';
 assert(ingestStep.includes("if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'"),
   '수동 적용은 원천 재수집/ERP5 원자 재계산을 실행하면 안 됩니다.');
@@ -142,8 +142,10 @@ assert(/ready_run_id:[\s\S]*READY_RUN_ID="\$\{\{ inputs\.ready_run_id \}\}"[\s\S
 assert(workflow.includes("steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success'"),
   '정시 캡처와 수동 READY 복원 경계를 발행 조건이 함께 확인해야 합니다.');
 assert(/id: supplementary[\s\S]*audit-supplementary-inventory-reference/.test(workflow), '보완참조 게이트 outcome을 식별해야 합니다.');
-assert((workflow.match(/steps\.supplementary\.outcome == 'success'/g) ?? []).length >= 3,
-  '보완참조 HOLD 뒤 F86 백업/발행/감사가 실행되면 안 됩니다.');
+assert(/id: supplementary[\s\S]*continue-on-error: true/.test(workflow),
+  '보완 시트는 새 원천 발행을 막지 않는 관측 증거여야 합니다.');
+assert(!workflow.includes("steps.supplementary.outcome == 'success'"),
+  '과거 보완 시트와의 차이를 새 원천 발행 조건으로 사용하면 안 됩니다.');
 const validatedEngine = pinnedEngine as string;
 assert(workflow.includes('GOOGLE_CLOUD_PROJECT: freepasserp5'), 'production target은 freepasserp5여야 합니다.');
 assert(workflow.includes('scripts/ingest-all-suppliers.mts'), 'production workflow가 검증된 일괄수집기를 호출하지 않습니다.');
