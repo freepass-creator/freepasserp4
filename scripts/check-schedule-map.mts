@@ -77,7 +77,7 @@ for (const phrase of [
     ['scripts/build-channel-supplier-sheet.mts', 'F86 발행'],
     ['scripts/audit-f86-vs-atom.mts', 'F86 감사(첫 관문)'],
     ['--max-age-min=', 'F86 신선도 감시'],
-    ["steps.snapshot.outcome == 'success'", 'F01 이 실패해도 F86 은 나간다'],
+    ["steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success'", 'F01 이 실패해도 검증 스냅샷으로 F86 은 나간다'],
   ] as const) if (!wf.includes(needle)) fails.push(`통합 워크플로에서 「${why}」 가 빠졌다 — ${needle}`);
 }
 

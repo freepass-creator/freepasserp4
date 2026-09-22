@@ -33,6 +33,7 @@ jobs:
     if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.event == 'schedule' || github.event.workflow_run.event == 'push')) }}
     permissions:
       contents: read
+      actions: read
       id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -208,12 +209,27 @@ jobs:
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/reconcile-product-policy-references.mts --erp5 --apply
       - name: ERP5 발행 스냅샷 고정
-        id: snapshot
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
+        id: snapshot_capture
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/capture-sales-publish-snapshot.mts --erp5 --out=tmp/erp5-sales-publish.json
+      - name: 마지막 검증 완료 정시 스냅샷 고정
+        id: snapshot_restore
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          READY_RUN_ID="$(gh run list --workflow erp5-ssot-refresh.yml --branch main --event schedule --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          test -n "$READY_RUN_ID" || { echo '::error::HOLD: 검증 완료 정시 회차가 없습니다.'; exit 1; }
+          mkdir -p tmp/ready-snapshot
+          gh run download "$READY_RUN_ID" --name "erp5-ssot-snapshot-$READY_RUN_ID" --dir tmp/ready-snapshot
+          test -f tmp/ready-snapshot/erp5-sales-publish.json || { echo '::error::HOLD: 정시 회차 스냅샷이 없습니다.'; exit 1; }
+          mv tmp/ready-snapshot/erp5-sales-publish.json tmp/erp5-sales-publish.json
+          echo "ready_run_id=$READY_RUN_ID" >> "$GITHUB_OUTPUT"
       - name: ERP5 공개 카탈로그 발행 대사
         if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
         env:
@@ -238,18 +254,18 @@ jobs:
       #   운영 F01·F86 쓰기는 이 워크플로 이름으로만 열린다(lib/server/production-sheet-write-gate.ts · docs/예약작업-지도.md).
       - name: 하허호 F86 발행 직전 백업
         id: f86_backup
-        if: ${{ always() && steps.snapshot.outcome == 'success' && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/backup-f86.mts --label=run-${{ github.run_id }}
       - name: 동일 스냅샷으로 하허호 F86 게시
         id: f86
-        if: ${{ always() && steps.snapshot.outcome == 'success' && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 --apply --snapshot=tmp/erp5-sales-publish.json
       - name: 하허호 F86 ↔ 원자 칸 대조·신선도(첫 관문)
-        if: ${{ always() && steps.snapshot.outcome == 'success' && steps.supplementary.outcome == 'success' && steps.f86.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && steps.f86.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-f86-vs-atom.mts --snapshot=tmp/erp5-sales-publish.json --max-age-min=120
@@ -264,7 +280,7 @@ jobs:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-plate-photo-link.mts
       - name: 회차 증거 보존
-        if: ${{ always() && steps.snapshot.outcome == 'success' }}
+        if: ${{ always() && steps.snapshot_capture.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: erp5-ssot-snapshot-${{ github.run_id }}

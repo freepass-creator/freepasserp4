@@ -134,6 +134,12 @@ const ingestStep = workflow.match(/- name: 원천에서 ERP5 현재 원자 계�
 assert(ingestStep.includes("if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'"),
   '수동 적용은 원천 재수집/ERP5 원자 재계산을 실행하면 안 됩니다.');
 assert(!ingestStep.includes('inputs.apply'), '수동 적용이 ERP5 원자 갱신 조건에 다시 연결됐습니다.');
+const captureStep = workflow.match(/- name: ERP5 발행 스냅샷 고정[\s\S]*?(?=\n      - name:)/)?.[0] ?? '';
+assert(!captureStep.includes('inputs.apply'), '수동 적용은 현재 Firestore를 다시 캡처하면 안 됩니다.');
+assert(/gh run list --workflow erp5-ssot-refresh\.yml[\s\S]*--event schedule --status success[\s\S]*gh run download/.test(workflow),
+  '수동 적용은 마지막 성공 정시 회차의 고정 스냅샷을 사용해야 합니다.');
+assert(workflow.includes("steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success'"),
+  '정시 캡처와 수동 READY 복원 경계를 발행 조건이 함께 확인해야 합니다.');
 assert(/id: supplementary[\s\S]*audit-supplementary-inventory-reference/.test(workflow), '보완참조 게이트 outcome을 식별해야 합니다.');
 assert((workflow.match(/steps\.supplementary\.outcome == 'success'/g) ?? []).length >= 3,
   '보완참조 HOLD 뒤 F86 백업/발행/감사가 실행되면 안 됩니다.');
