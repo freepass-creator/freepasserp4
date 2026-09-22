@@ -51,6 +51,5 @@ const receipt = { schema: 'supplementary-inventory-reference/v1', snapshotId: sn
 const output = arg('out') || `tmp/supplementary-reference/${snapshot.snapshotId}.json`;
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, JSON.stringify(receipt, null, 2), 'utf8');
-for (const result of results) console.log(`${result.status} ${result.partnerCode}/${result.referenceTab}: 참조 ${result.referenceCount} · 원자 ${result.canonicalCount} · 공통 ${result.sharedCount} · 참조만 ${result.referenceOnlyCount} · 원자만 ${result.canonicalOnlyCount} · 허용 ${result.tolerance}`);
-if (results.some((result) => result.status === 'HOLD')) throw new Error(`HOLD_SOURCE_REFERENCE_PARITY — ${output}`);
-console.log(`✓ 보완참조 대조 PASS — ${output}`);
+for (const result of results) console.log(`${result.status} ${result.partnerCode}/${result.referenceTab}: 참조 ${result.referenceCount} · 새 원천 ${result.canonicalCount} · 공통 ${result.sharedCount} · 참조만 ${result.referenceOnlyCount} · 새 원천만 ${result.canonicalOnlyCount} · 참조중복 ${result.duplicateReferenceKeys}`);
+console.log(`✓ 보완참조 관측 증거 저장 — 새 원천 발행 판정에는 사용하지 않음 · ${output}`);
