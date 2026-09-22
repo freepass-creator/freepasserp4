@@ -94,19 +94,17 @@ const cols = ['구분', '36개월', '36개월 반납형', '분납', '최초등�
 const reqs: any[] = applyRetroSkin([{ addConditionalFormatRule: { rule: {} } }, { repeatCell: { fields: 'note' } }], [], { gid: 0, columns: cols, headerAt: 0 });
 must(!reqs.some((r) => r.addConditionalFormatRule), '레트로 입력엔 「구분」 값별 조건부서식이 없는데도 살아남았습니다 — 필터가 열려 있습니다.', `${SKIN} · applyRetroSkin ① — ${MANUAL} 4`);
 {
-  // ★2026-09-16 — 「구분」·「배차상태」 값별 색(GUBUN_INK·STATE_INK)은 예외로 살아야 한다(F01과 같은 뜻·같은 색).
+  // ★2026-09-22 — 실제 레트로 원본은 값별 색이 아니라 구분 초록·배차상태 파랑의 열 고정색이다.
   const 구분조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 0, endColumnIndex: 1 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '픽업구독' }] }, format: { textFormat: { foregroundColor: { red: 0, green: 0, blue: 0 } } } } } } };
   const 배차상태조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 6, endColumnIndex: 7 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '출고가능' }] }, format: { textFormat: { foregroundColor: { red: 0, green: 0, blue: 1 } } } } } } };
+  const 제조사조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 8, endColumnIndex: 9 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '현대' }] }, format: {} } } } };
+  const 연료조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 9, endColumnIndex: 10 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '가솔린' }] }, format: {} } } } };
   const 다른칸조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 5, endColumnIndex: 6 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '기타' }] }, format: {} } } } };
   // ★2026-09-16 — 「미입력」·「해당없음」 연한 회색(표 전체 범위)도 예외로 살아야 한다.
   const 미입력조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 0, endColumnIndex: 7 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '미입력' }] }, format: { textFormat: { foregroundColor: { red: 0.72, green: 0.72, blue: 0.72 } } } } } } };
-  const 제조사조건부 = { addConditionalFormatRule: { rule: { ranges: [{ startColumnIndex: cols.indexOf('제조사'), endColumnIndex: cols.indexOf('제조사') + 1 }], booleanRule: { condition: { values: [{ userEnteredValue: '현대' }] } } } } };
-  const 연료조건부 = { addConditionalFormatRule: { rule: { ranges: [{ startColumnIndex: cols.indexOf('연료'), endColumnIndex: cols.indexOf('연료') + 1 }], booleanRule: { condition: { values: [{ userEnteredValue: '가솔린' }] } } } } };
   const r2 = applyRetroSkin([구분조건부, 배차상태조건부, 제조사조건부, 연료조건부, 다른칸조건부, 미입력조건부], [], { gid: 0, columns: cols, headerAt: 0 });
-  must(r2.some((r) => r.addConditionalFormatRule === 구분조건부.addConditionalFormatRule), '「구분」 값별 조건부서식(GUBUN_INK)이 레트로에서 걷힙니다 — F01·F86 상품 갈래 색이 갈라집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
-  must(r2.some((r) => r.addConditionalFormatRule === 배차상태조건부.addConditionalFormatRule), '「배차상태」 값별 조건부서식(STATE_INK)이 레트로에서 걷힙니다 — F01·F86 배차상태 색이 갈라집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
-  must(r2.some((r) => r.addConditionalFormatRule === 제조사조건부.addConditionalFormatRule), '「제조사」 의미색이 레트로에서 걷힙니다 — 같은 상품이 F01·F86에서 다른 색으로 보입니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
-  must(r2.some((r) => r.addConditionalFormatRule === 연료조건부.addConditionalFormatRule), '「연료」 의미색이 레트로에서 걷힙니다 — 같은 상품이 F01·F86에서 다른 색으로 보입니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
+  must(!r2.some((r) => [구분조건부, 배차상태조건부, 제조사조건부, 연료조건부].some((x) => r.addConditionalFormatRule === x.addConditionalFormatRule)),
+    'F01 값별 의미색이 F86 레트로에 남았습니다 — 원본은 구분 초록·배차상태 파랑의 열 고정색입니다.', `${SKIN} · applyRetroSkin ① — ${MANUAL} 4`);
   must(r2.some((r) => r.addConditionalFormatRule === 미입력조건부.addConditionalFormatRule), '「미입력」 연한 회색 조건부서식이 레트로에서 걷힙니다 — 사장님 「미입력은 좀 색깔이 회색이어야지」(2026-09-16) 위반.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
   must(!r2.some((r) => r.addConditionalFormatRule === 다른칸조건부.addConditionalFormatRule), '의미색 정본에 없는 칸의 조건부서식까지 살아남습니다 — 레트로 「옛 시트 느낌」이 깨집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
 }
@@ -123,8 +121,8 @@ const nf = (i: number) => last(cellsAt(i, false).filter((f) => f.numberFormat))?
 must(headBg(1) === 'cc4125' && bodyInk(1) === '0000ff', `36개월 칸 색(머리 CC4125 · 글자 파랑)이 바뀌었습니다: 머리 ${headBg(1)} · 글자 ${bodyInk(1)}`, `${SKIN} · HEAD_BG/BODY_INK — ${MANUAL} 4`);
 must(headBg(2) === 'cc4125' && bodyInk(2) === '0000ff',
   `고유 요금 칸(36개월 반납형)이 «기간이 같은 옛 칸 색»이 아닙니다: 머리 ${headBg(2)} · 글자 ${bodyInk(2)} — 사장님 「컬러 느낌은 동일하게 대여료 구간」`, `${SKIN} · retroFeeStyleOf — ${MANUAL} 4`);
-must(bodyInk(0) === '', `「구분」에 옛 고정색(BODY_INK)이 남아 있습니다: ${bodyInk(0)} — 이제 값별 표(GUBUN_INK)로만 정한다.`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
-must(bodyInk(6) === '', `「배차상태」에 옛 고정색(BODY_INK)이 남아 있습니다: ${bodyInk(6)} — 이제 값별 표(STATE_INK)로만 정한다.`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
+must(bodyInk(0) === '34a853', `「구분」 원본 고정색(34A853)이 아닙니다: ${bodyInk(0)}`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
+must(bodyInk(6) === '0000ff', `「배차상태」 원본 고정색(0000FF)이 아닙니다: ${bodyInk(6)}`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
 // ★2026-09-16 — 「차량번호」 고정색 금지. 사장님 「링크 잇는애들은 링크색깔 링크없으면 그냥 색깔 검정색이겟지?」
 //   칸 전체를 링크색으로 칠하면 링크 없는 차도 파랗게 보인다. 링크 있는 줄만 그 셀 textFormatRuns 가 파랑으로 덮는다.
 must(bodyInk(7) === '', `「차량번호」에 고정 링크색(BODY_INK)이 남아 있습니다: ${bodyInk(7)} — 링크 있는 줄만 파랑이어야 합니다.`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
@@ -178,7 +176,7 @@ must(!read('lib/domain/sales-sheet-format.ts').includes('channel-retro-skin'), '
 
 /* ── 매뉴얼 절 ───────────────────────────────────────────────── */
 const man = read('docs/영업자시트-매뉴얼.md');
-for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '상품리스트 → 손오공상품 → 픽업구독 → 오플구독', '손오공상품 = 저신용 렌트 + 저신용 구독', 'MM.DD HH:mm 상품리스트 N대', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '굳힌 양식', '빈 값 표기 = F01 과 같다', '지키는 장치', 'F86 엔 공지사항 탭이 없다', 'GUBUN_INK', 'STATE_INK']) {
+for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '상품리스트 → 손오공상품 → 픽업구독 → 오플구독', '손오공상품 = 저신용 렌트 + 저신용 구독', 'MM.DD HH:mm 상품리스트 N대', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '굳힌 양식', '빈 값 표기 = F01 과 같다', '지키는 장치', 'F86 엔 공지사항 탭이 없다', '구분은 초록 `34A853`', '배차상태는 파랑 `0000FF`']) {
   must(man.includes(phrase), `매뉴얼 F86 절에서 「${phrase}」가 사라졌습니다.`, MANUAL);
 }
 
