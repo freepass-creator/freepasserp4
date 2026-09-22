@@ -47,6 +47,14 @@ for (const r of rows) {
   if (!seen.has(`${r.file} ${r.cron}`)) fails.push(`지도에만 있는 예약(파일에 없음) — ${r.file} '${r.cron}' — 지도가 낡았다`);
 }
 
+/** 사용자 확정 규격: ERP5 원천 최신화는 주간 시간대가 아니라 매일 24시간 매시간 실행한다. */
+{
+  const erp5 = readFileSync(`${WF}/erp5-ssot-refresh.yml`, 'utf8');
+  if (!/^\s*-\s*cron:\s*['"]17 \* \* \* \*['"]/m.test(erp5)) {
+    fails.push("ERP5 상시 갱신 규격이 바뀌었다 — erp5-ssot-refresh.yml은 매일 매시 17분('17 * * * *')이어야 한다");
+  }
+}
+
 /** ★2026-09-19 — RETIRED writer는 GitHub UI disable에만 기대지 않는다. YAML 자체에 schedule이 다시 생기면 CI가 막는다. */
 for (const f of ['contract-status.yml', 'sales-erp-hourly.yml', 'mirror-sync.yml']) {
   const src = readFileSync(`${WF}/${f}`, 'utf8');
