@@ -4,7 +4,7 @@ import { compareSupplementaryInventoryReference } from '../lib/domain/supplement
 const keys = (count: number, from = 0) => Array.from({ length: count }, (_, index) => `차량-${from + index}`);
 const historic = compareSupplementaryInventoryReference(keys(240), keys(224));
 assert.equal(historic.status, 'PASS', '손오공 과거 240↔224 수준은 보완참조 허용 범위다');
-assert.equal(historic.tolerance, 24);
+assert.equal(historic.tolerance, 36);
 const materialGap = compareSupplementaryInventoryReference(keys(72), keys(54));
 assert.equal(materialGap.status, 'HOLD');
 assert.ok(materialGap.reasons.includes('COUNT_OUTSIDE_TOLERANCE'));
@@ -12,4 +12,9 @@ assert.equal(compareSupplementaryInventoryReference([], keys(10)).status, 'HOLD'
 assert.equal(compareSupplementaryInventoryReference(['12가3456', '12가 3456'], ['12가3456']).status, 'HOLD');
 const symmetric = compareSupplementaryInventoryReference([...keys(90), ...keys(10, 1000)], [...keys(90), ...keys(10, 2000)]);
 assert.equal(symmetric.status, 'PASS');
-console.log('✓ 보완참조 게이트: 10% 또는 5대, 빈 참조·중복·큰 양방향 차이 HOLD');
+const approximateCountOnly = compareSupplementaryInventoryReference(keys(240), keys(217, 1000));
+assert.equal(approximateCountOnly.status, 'PASS', '보완참조는 차량번호 집합이 아니라 대수 차이를 본다');
+assert.equal(approximateCountOnly.sharedCount, 0, '대수가 맞으면 차량번호 공통 0이어도 참고 정보로만 남긴다');
+const currentSmallReference = compareSupplementaryInventoryReference(keys(50), keys(57, 1000));
+assert.equal(currentSmallReference.status, 'PASS', '50↔57대 수준의 갱신 시차는 보완참조 허용 범위다');
+console.log('✓ 보완참조 게이트: 15% 또는 5대의 대수 차이, 빈 참조·중복 HOLD');
