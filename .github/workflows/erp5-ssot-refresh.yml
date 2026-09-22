@@ -113,7 +113,7 @@ jobs:
           #   손오공상품은 RP012 중고렌트+오공구독, 픽업구독은 T카 외부재고로 분리하며 같은
           #   assignSalesTab SSOT를 발행기·감사·회귀검사가 공유한다. 손오공 원천은 기존대로 ERP API뿐이다.
           # F01/F86 presentation shares freepass-data 4005c5f; fixed-width regression and readback are mandatory.
-          ref: 518b9c7aac609ba51c4219f573145c94abc89723
+          ref: 716aa5fe66a8f3512668bcaff4c769c2fe7f2775
       - name: Core receipt helper checkout
         uses: actions/checkout@v4
         with:
@@ -186,7 +186,7 @@ jobs:
           node .core-contract-helper/scripts/core-contract/build-erp5-ingest-receipt.mjs \
             --log=tmp/core-contract/erp5-ingest.log \
             --out=tmp/core-contract/erp5-ingest-receipt.json \
-            --engine-revision=518b9c7aac609ba51c4219f573145c94abc89723 \
+            --engine-revision=716aa5fe66a8f3512668bcaff4c769c2fe7f2775 \
             --run-id=${{ github.run_id }} \
             --run-attempt=${{ github.run_attempt }} \
             --outcome=${{ steps.ingest.outcome }} \
