@@ -32,7 +32,7 @@ import { compareSalesRows, loadSalesRowContext, makeCell, tabOf } from '../lib/d
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { atomDisplayText } from '../lib/domain/missing-value-display';
-import { retroUsesColumn, retroSameValue, retroHasValue } from '../lib/domain/channel-retro-skin';
+import { retroUsesColumn, retroSameValue, retroHasValue, retroHasLongFee } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import { compareF86Rows, F86_BASE_TABS, f86BaseTabOf, f86TabTitle } from '../lib/server/channel-f86-plan';
 
