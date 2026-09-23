@@ -486,6 +486,18 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     properties: { pixelSize: px }, fields: 'pixelSize',
   } }));
 
+  const previewIndex = idx('대표사진');
+  if (previewIndex >= 0) {
+    out.push({ updateDimensionProperties: {
+      range: { sheetId: gid, dimension: 'COLUMNS', startIndex: previewIndex, endIndex: previewIndex + 1 },
+      properties: { pixelSize: 120, hiddenByUser: false }, fields: 'pixelSize,hiddenByUser',
+    } });
+    out.push({ updateDimensionProperties: {
+      range: { sheetId: gid, dimension: 'ROWS', startIndex: H + 1 },
+      properties: { pixelSize: 84 }, fields: 'pixelSize',
+    } });
+  }
+
   /**
    * ★**영업자 눈에서 치우는 열** — 값은 그대로 두고 열만 접는다(`SALES_HIDDEN_COLUMNS`).
    *   「사진」은 차번 링크를 만드는 재료라 지우면 링크가 같이 죽는다.
@@ -553,6 +565,32 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
           } }],
         }] }],
         fields: 'userEnteredValue,textFormatRuns',
+      } });
+    });
+  }
+
+
+  /** 손오공상품만 대표사진을 셀 안에 그린다. 원문 「사진」은 숨긴 채 보존한다. */
+  if (previewIndex >= 0 && input.body) {
+    const target = input.linkOut || out;
+    const quote = (value: string) => value.replace(/"/g, '""');
+    input.body.forEach((row, i) => {
+      const image = String(row[previewIndex] ?? '').trim();
+      const gallery = idl >= 0 ? String(row[idl] ?? '').split(/\s*[\n,]\s*/)[0].trim() : '';
+      const value = image && /^https?:\/\//i.test(image)
+        ? { formulaValue: gallery && /^https?:\/\//i.test(gallery)
+          ? `=HYPERLINK("${quote(gallery)}",IMAGE("${quote(image)}",4,78,110))`
+          : `=IMAGE("${quote(image)}",4,78,110)` }
+        : gallery && /^https?:\/\//i.test(gallery)
+          ? { formulaValue: `=HYPERLINK("${quote(gallery)}","사진 확인 필요")` }
+          : { stringValue: '사진 없음' };
+      target.push({ updateCells: {
+        range: {
+          sheetId: gid, startRowIndex: H + 1 + i, endRowIndex: H + 2 + i,
+          startColumnIndex: previewIndex, endColumnIndex: previewIndex + 1,
+        },
+        rows: [{ values: [{ userEnteredValue: value }] }],
+        fields: 'userEnteredValue',
       } });
     });
   }

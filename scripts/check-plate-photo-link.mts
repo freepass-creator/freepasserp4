@@ -88,7 +88,7 @@ const get = async (u: string): Promise<any> => {
   throw new Error(last || 'Sheets API retry exhausted');
 };
 
-const GRID = 'sheets.data.rowData.values(formattedValue,hyperlink,userEnteredFormat.textFormat.link,textFormatRuns.format.link)';
+const GRID = 'sheets.data.rowData.values(formattedValue,hyperlink,userEnteredValue,effectiveValue,userEnteredFormat.textFormat.link,textFormatRuns.format.link)';
 const tx = (c: any) => S(c?.formattedValue);
 /** 링크는 세 자리에 숨는다 — 셀 hyperlink · 칸 서식 · 글자 run. 하나만 보면 놓친다. */
 const lk = (c: any) => S(c?.hyperlink) || S(c?.userEnteredFormat?.textFormat?.link?.uri)
@@ -125,6 +125,8 @@ async function 재다(sheetId: string, title: string, wide: boolean): Promise<nu
   if (ip < 0 || il < 0) { console.log(`  ✗ ${title} — 「차량번호/차번링크」 칸이 없다`); return 1; }
 
   let rows = 0, 걸림 = 0, 티카 = 0; const off: string[] = [];
+  const ir = head.indexOf('대표사진');
+  let 대표사진 = 0; let 사진없음 = 0; let 사진확인 = 0;
   for (let r = hi + 1; r < rd.length; r++) {
     const vs = rd[r]?.values || [];
     const plate = tx(vs[ip]); if (!plate) continue;
@@ -138,9 +140,21 @@ async function 재다(sheetId: string, title: string, wide: boolean): Promise<nu
     }
     if (규격 && l !== 규격) off.push(`${plate} ${l ? '값≠링크' : '링크가 «빠졌다»'}`);
     if (!규격 && l) off.push(`${plate} 규격엔 없는데 링크가 «남았다»`);
+    if (ir >= 0) {
+      const cell = vs[ir] || {};
+      const formula = S(cell.userEnteredValue?.formulaValue);
+      const error = S(cell.effectiveValue?.errorValue?.message);
+      const label = tx(cell);
+      if (error) off.push(`${plate} 대표사진 수식 오류(${error})`);
+      else if (/^=HYPERLINK\("https?:\/\//i.test(formula) && /IMAGE\("https?:\/\//i.test(formula)) 대표사진++;
+      else if (formula && /사진 확인 필요/.test(formula)) 사진확인++;
+      else if (label === '사진 없음') 사진없음++;
+      else off.push(`${plate} 대표사진 값이 규격이 아님`);
+    }
   }
   const ok = off.length === 0;
   console.log(`  ${ok ? '✓' : '✗'} ${title.slice(0, 14).padEnd(15)} 줄 ${String(rows).padStart(4)} · 링크 있어야 ${String(걸림).padStart(4)}(티카 ${String(티카).padStart(3)}) · 어긋남 ${off.length}`);
+  if (ir >= 0) console.log(`       대표사진 ${대표사진} · 확인 필요 ${사진확인} · 사진 없음 ${사진없음}`);
   off.slice(0, 5).forEach((m) => console.log(`       ${m}`));
   return ok ? 0 : 1;
 }

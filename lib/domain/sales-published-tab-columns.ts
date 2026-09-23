@@ -10,7 +10,13 @@ const FEES: Readonly<Record<string, readonly string[]>> = {
 };
 
 export const SALES_PUBLISHED_COLUMNS: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
-  Object.entries(FEES).map(([tab, fees]) => [tab, [...IDENTITY, ...fees, ...DETAIL]]),
+  Object.entries(FEES).map(([tab, fees]) => [tab, [
+    ...IDENTITY.slice(0, 3),
+    ...(tab === '손오공상품' ? ['대표사진'] : []),
+    ...IDENTITY.slice(3),
+    ...fees,
+    ...DETAIL,
+  ]]),
 );
 
 export const salesPublishedColumns = (tab: string): string[] => [...(SALES_PUBLISHED_COLUMNS[tab] || [])];

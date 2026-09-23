@@ -117,6 +117,8 @@ export function compareF86Cells(tabs: Pick<F86TabPlan, 'company' | 'cols' | 'val
     for (let r = 0; r < n; r++) {
       차수++;
       for (let c = 0; c < tab.cols.length; c++) {
+        // 대표사진은 원자 URL을 IMAGE/HYPERLINK 수식으로 렌더링하는 표시 전용 파생 칸이다.
+        if (tab.cols[c] === '대표사진') continue;
         칸수++;
         const want = S(tab.values[r][c]);
         const have = S((rows[r] || [])[c]);

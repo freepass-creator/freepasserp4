@@ -71,6 +71,14 @@ function collectPhotoValues(value: unknown): string[] {
   add(value);
   return out;
 }
+
+/** 판매시트에서 바로 그릴 대표사진. 서류사진(doc_images)은 공개 투영에서 제외한다. */
+export function representativePhotoLink(atom: PhotoAtom): string {
+  const direct = collectPhotoValues([atom.image_urls, atom.images, atom.photos, atom.photo, atom.image_url])
+    .find((source) => isDirectPhotoUrl(source));
+  if (direct) return direct;
+  return S(atom.photo_link).split(/\s*[\n,]\s*/).find((source) => isDirectPhotoUrl(source)) || '';
+}
 export function photoProjectionViolations(atom: PhotoAtom): string[] {
   const problems: string[] = [];
   const link = sheetPlateLink(atom);

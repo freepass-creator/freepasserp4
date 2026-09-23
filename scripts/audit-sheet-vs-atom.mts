@@ -184,7 +184,9 @@ for (const r of f01) {
     entry.n++; if (entry.표본.length < 3) entry.표본.push(`${r.car} 시트「${actual || '—'}」↔ 원자 직접값「${expected || '—'}」`);
     핵심투영어긋남.set(column, entry);
   }
-  const comparisons: Array<[string, string]> = Object.keys(r.cells).map((col) => [col, expectedCell(col, a)]);
+  const comparisons: Array<[string, string]> = Object.keys(r.cells)
+    .filter((col) => col !== '대표사진')
+    .map((col) => [col, expectedCell(col, a)]);
   for (const [col, 원자] of comparisons) {
     const 시트 = r.cells[col];
     if (!원자 && !S(시트)) continue;
@@ -289,6 +291,7 @@ for (const r of f01) {
   if (expectedCompany && found.company !== expectedCompany) f86WrongCompany.push(`${r.car} ${found.company || '알 수 없는 탭'} ↔ ${expectedCompany}`);
   const b = found.cells;
   for (const [rawCol, v] of Object.entries(r.cells)) {
+    if (rawCol === '대표사진') continue;
     const col = channelColumnName(rawCol);
     if (!(col in b)) {
       /** 옛 「종합」에 없던 F01 칸(연식·원산지·심사조건…)·단기 칸은 F86 에 안 싣는다 — 누락이 아니다. */

@@ -17,7 +17,7 @@
  *   모으는 길이 둘로 갈리면 같은 차가 시트마다 다른 값을 갖는다.
  */
 import { readFileSync } from 'node:fs';
-import { erpPhotoSource, isPickupPhotoAtom, sheetPlateLink } from './photo-projection';
+import { erpPhotoSource, isPickupPhotoAtom, representativePhotoLink, sheetPlateLink } from './photo-projection';
 import { autoplusDepositRuleText } from './sales-published-tabs';
 import { isDepositColumn } from './sales-sheet-format';
 import { groupPoliciesByProvider, autoPolicyCode } from './supplier-policy-link';
@@ -212,6 +212,7 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
   if (ov && S(ov[col])) return S(ov[col]);
   // ★기본연령(사장님 2026-09-04) — 전 공급사 만26세 이상.
   if (col === '기본연령') return '만26세 이상';
+  if (col === '대표사진') return representativePhotoLink(v);
   // ★할증 열(1만+·21세+·23세+) — 「대여료 00% / 정액 00만원」으로 표기(사장님 2026-09-04).
   //   0.1→대여료 10%, 3만→정액 3만원. 애매한 정수(어디는 %·어디는 정액)는 원값 유지 → 확인되면 오버라이드로 박는다.
   if (col === '1만+') return fmtSurcharge(S(sp?.['1만+']) || S(pol.mileage_upcharge_per_10000km));
