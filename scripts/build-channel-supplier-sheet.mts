@@ -196,7 +196,12 @@ for (const tab of plan.tabs) {
     });
     gid = Number(made.replies[0].addSheet.properties.sheetId);
   }
-  reqs.push({ updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue' } });
+  /**
+   * 기존 탭 값을 먼저 통째로 비우지 않는다. 열린 Google Sheets 화면은 이 요청과 뒤의 values:batchUpdate
+   * 사이를 실제 빈 시트로 받아 "변경사항이 많습니다"와 빈 격자를 남길 수 있다. 새 직사각형은 아래
+   * values:batchUpdate가 모든 셀(빈 문자열 포함)을 덮고, 줄·열 감소분은 gridProperties 축소가 제거한다.
+   * 따라서 기존 sheetId와 현재 값을 유지한 채 새 값으로 바로 교체한다.
+   */
   for (let k = 0; k < (old ? 규칙수.get(gid) || 0 : 0); k++) reqs.push({ deleteConditionalFormatRule: { sheetId: gid, index: 0 } });
   reqs.push({ updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, rowCount: rows.length + 30, columnCount: cols.length } }, fields: 'gridProperties(frozenRowCount,rowCount,columnCount)' } });
   /** ★숨김은 «다 편 뒤» 이름으로 다시 접는다 — 칸 자리가 바뀌면 지난 회차 숨김이 옛 자리에 남는다(2026-09-15). */
@@ -236,7 +241,7 @@ for (const tab of plan.tabs) {
   }
 }
 
-/** ★서식 요청은 300개씩, 값은 탭 전부를 한 번에(`values:batchUpdate`) — 두드림 수가 곧 429 로 죽을 확률이다. */
+/** ★서식 요청은 300개씩, 값은 탭 전부를 한 번에(`values:batchUpdate`) — 값을 먼저 지우는 중간 상태는 만들지 않는다. */
 for (let i = 0; i < reqs.length; i += 300) {
   await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs.slice(i, i + 300) }) });
 }

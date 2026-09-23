@@ -31,6 +31,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
+import { isRetryableSheetsReadFailure } from '../lib/domain/supplier-sheet-read';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -58,7 +59,34 @@ const jwt = new JWT({
 });
 const tok = (await jwt.getAccessToken()).token;
 const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
-const get = async (u: string) => (await fetch(u, { headers: { Authorization: `Bearer ${tok}` } })).json() as any;
+const 기다리기 = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+let apiCalls = 0;
+const MAX_API_CALLS = 80;
+/** 한 회차에서 탭을 연속 조회하면 Sheets read quota가 잠깐 걸릴 수 있다. 읽기 전용 일시 오류만 제한적으로 재시도한다. */
+const get = async (u: string): Promise<any> => {
+  let last = '';
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    if (++apiCalls > MAX_API_CALLS) throw new Error(`Sheets API read budget exceeded: ${MAX_API_CALLS}`);
+    let response: Response;
+    let body = '';
+    try {
+      response = await fetch(u, { headers: { Authorization: `Bearer ${tok}` }, signal: AbortSignal.timeout(30_000) });
+      body = await response.text();
+    } catch (error) {
+      last = String((error as Error)?.message || error);
+      if (attempt === 4) throw new Error(last);
+      await 기다리기(attempt * 3000);
+      continue;
+    }
+    if (response.ok) return body ? JSON.parse(body) : {};
+    last = body.slice(0, 300);
+    if (!isRetryableSheetsReadFailure(response.status, body) || attempt === 4) throw new Error(`Sheets API ${response.status}: ${last}`);
+    const retryAfter = Number(response.headers.get('retry-after'));
+    const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : attempt * 5000;
+    await 기다리기(Math.min(waitMs, 30_000));
+  }
+  throw new Error(last || 'Sheets API retry exhausted');
+};
 
 const GRID = 'sheets.data.rowData.values(formattedValue,hyperlink,userEnteredFormat.textFormat.link,textFormatRuns.format.link)';
 const tx = (c: any) => S(c?.formattedValue);
@@ -72,10 +100,26 @@ const 주소인가 = (v: string) => /^https?:\/\//i.test(v);
 /** 한 탭을 잰다 — 어긋난 곳이 있으면 1, 없으면 0. */
 async function 재다(sheetId: string, title: string, wide: boolean): Promise<number> {
   const range = `'${title.replace(/'/g, "''")}'!A1:CZ${wide ? 3000 : 700}`;
-  const g = await get(`${SH}/${sheetId}?includeGridData=true&ranges=${encodeURIComponent(range)}&fields=${GRID}`);
-  const rd = (g.sheets?.[0]?.data?.[0]?.rowData || []) as any[];
-  const hi = rd.findIndex((r: any) => (r?.values || []).some((c: any) => tx(c) === '차량번호'));
+  let rd: any[] = [];
+  let hi = -1;
+  let observedRows = -1;
+  const expectedRows = Number((title.match(/(\d+)대\s*$/) || [])[1]);
+  // 발행 직후 gridData가 부분적으로 보일 수 있다. 머리글과 문패 대수가 모두 맞을 때만 읽기를 채택한다.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const g = await get(`${SH}/${sheetId}?includeGridData=true&ranges=${encodeURIComponent(range)}&fields=${GRID}`);
+    rd = (g.sheets?.[0]?.data?.[0]?.rowData || []) as any[];
+    hi = rd.findIndex((r: any) => (r?.values || []).some((c: any) => tx(c) === '차량번호'));
+    const plateIndex = hi >= 0 ? (rd[hi]?.values || []).map(tx).indexOf('차량번호') : -1;
+    observedRows = plateIndex >= 0 ? rd.slice(hi + 1).filter((r: any) => tx((r?.values || [])[plateIndex])).length : -1;
+    const plausible = hi >= 0 && (!Number.isFinite(expectedRows) || observedRows === expectedRows);
+    if (plausible || attempt === 3) break;
+    await 기다리기(attempt * 2000);
+  }
   if (hi < 0) { console.log(`  ✗ ${title} — 「차량번호」 머리글을 못 찾았다`); return 1; }
+  if (Number.isFinite(expectedRows) && observedRows !== expectedRows) {
+    console.log(`  ✗ ${title} — 문패 ${expectedRows}대인데 격자는 ${observedRows}줄만 읽혔다`);
+    return 1;
+  }
   const head = (rd[hi]?.values || []).map(tx);
   const ip = head.indexOf('차량번호'), il = head.indexOf('차번링크');
   if (ip < 0 || il < 0) { console.log(`  ✗ ${title} — 「차량번호/차번링크」 칸이 없다`); return 1; }
@@ -106,7 +150,10 @@ if (only !== 'F86') {
   console.log('\n■ 판매시트 F01');
   const meta = await get(`${SH}/${SALES_SHEET_ID}?fields=sheets.properties(title,hidden)`);
   const titles = (meta.sheets || []).filter((s: any) => !s.properties.hidden).map((s: any) => S(s.properties.title));
-  for (const t of pickPublishedSalesTabs(titles)) bad += await 재다(SALES_SHEET_ID, t.title, false);
+  for (const t of pickPublishedSalesTabs(titles)) {
+    bad += await 재다(SALES_SHEET_ID, t.title, false);
+    await 기다리기(1000);
+  }
 }
 
 // ── ③ 채널시트 F86 — 여기를 안 봐서 703대 링크가 통째로 빠진 채 나갔다(2026-09-09)
@@ -121,7 +168,10 @@ if (only !== 'F01') {
   } else {
     const ctabs = (cmeta.sheets || []).filter((s: any) => !s.properties.hidden)
       .map((s: any) => S(s.properties.title)).filter((t: string) => !/공지사항/.test(t));
-    for (const title of ctabs) bad += await 재다(cid, title, true);
+    for (const title of ctabs) {
+      bad += await 재다(cid, title, true);
+      await 기다리기(1000);
+    }
   }
 }
 
