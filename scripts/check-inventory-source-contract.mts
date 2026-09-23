@@ -133,7 +133,7 @@ const VALIDATED_ENGINES = [
   'ea78781527635552f5c56a45be1531f3b2399c8b', // reject Shooting Brake pins when current raw name lacks that body-style evidence
   '8af50fda4a5541245d4f2e1e650bfc0cbe0ea059', // preserve F01 semantic manufacturer/fuel/color rules in F86 retro presentation
   '26977f35d65f780662eefa75c605fea492656da1', // permanently forbid the retired F86 summary tab and lock exact tab naming
-  'f6d1c61fbb3e930cec6fa8c752268920ef2683cf', // preserve canonical product-type colors in F86; 신차렌트 remains FF00FF after every publish
+  '4ea95ae7428fd45b67d52fa5aeeefb0057b9666b', // preserve F86 product-type colors and keep the post-publish long-fee audit executable
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
