@@ -17,7 +17,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { myStockTabs } from '../lib/domain/supplier-source';
@@ -29,12 +29,11 @@ import { canonProductType } from '../lib/domain/product';
 import { composeVehicleName, MIRROR_ALIAS } from '../lib/domain/mirror-sheet-mapping';
 import { snapColor } from '../lib/domain/color-master';
 import { getInventorySource } from '../lib/domain/inventory-source-registry';
-import { sonokongProductClassification, sonokongProductKind } from '../lib/domain/sonokong-product-kind';
+import { sonokongDepositNote, sonokongErpRentalDeposit, sonokongProductClassification, sonokongProductKind, sonokongUsesErpRentalDeposit } from '../lib/domain/sonokong-product-kind';
 import { directSourceStatusBase } from '../lib/domain/direct-source-status';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
-import { sonokongDepositRuleText } from '../lib/domain/sales-published-tabs';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
 import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
@@ -200,7 +199,7 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; sourceBucket?: string; responseBucket?: string; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawSonokongOptionNote?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; sourceBucket?: string; responseBucket?: string; rawDepositEvidence?: unknown; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawSonokongOptionNote?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', rawPaidOptions: null, rawMirroredPaidOptions: null, rawSonokongOptionNote: null, rawOptionEvidence: null, optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
@@ -271,10 +270,11 @@ async function readRows(): Promise<Row[]> {
       // ★★대여료는 «천원단위»로 맞춘다 — 사장님 「원단위 절사해 놨다」(2026-09-10). API 덤프는 원문(…479원)이라
       //   재고시트(`손오공-재고시트.mjs` 라운드천)를 안 거치면 1의 자리까지 들어온다. 인제스트가 덤프를
       //   직접 읽으므로 여기서 «같은 규칙»(round/1000×1000)을 건다. 보증금은 라운드된 대여료로 재계산돼 정합.
-      // ★보증금 = 대여료 × 연수, «최대 3개월»(사장님 「손오공 규칙」 2026-08-28). 5년도 3개월치만 받는다.
+      // 손오공 구독/픽업 보증금은 계산 규칙 문구로 발행한다.
+      // 손오공 중고렌트(LOW_SONOKONG_DAILY)는 ERP 상세 estimates의 RENT_* 보증금을 원값 그대로 발행한다.
       //   min(개월/12, 3) 로 캡 — 48·60개월이 4·5개월치로 부풀던 것을 막는다.
       /**
-       * ★★2026-09-17 정정 — **보증금은 «숫자로 계산해 박지 않는다».** 사장님 「손오공 보증금 ssot에
+       * ★★2026-09-17 정정 — **구독/픽업 보증금은 «숫자로 계산해 박지 않는다».** 사장님 「손오공 보증금 ssot에
        *   제대로 반영 안된거 같음」 · 「규칙 글자로」.
        *   위 2026-08-28 규칙(대여료 × 연수 · 최대 3개월)은 «셈법»으로 남고, 원자에는 그 «규칙 글자»만
        *   싣는다(`deposit_note` = 「월 대여료 × 약정연수 (최대 3개월)」 — 아래 depNote).
@@ -282,15 +282,21 @@ async function readRows(): Promise<Row[]> {
        *     (`sales-atom-row.ts` — 보증금 칸이 «비었을 때만» deposit_note 를 쓴다).
        *   ⚠ 실측 2026-09-17 — 글자는 258대 전부 들어 있었는데 숫자도 남아 있어서 규칙 글자가 한 번도
        *     안 보였다. 규칙이 두 번 바뀌며 «절반만» 반영된 자리다. 숫자를 여기서 끊는다.
-       *   ★계산값을 원자에 박으면 원천 대여료가 바뀔 때 보증금만 따로 늙는다 — 규칙은 셈법으로 두는 게 맞다.
+       *   ★구독 계산값을 원자에 박으면 원천 대여료가 바뀔 때 보증금만 따로 늙는다 — 규칙은 셈법으로 둔다.
+       *   ★2026-09-23 사용자 정정 — 중고렌트는 이 규칙 대상이 아니다. ERP RENT_* securityDepositAmount가 정본이다.
        */
       const price: Price = {};
       const low = (c.저신용월납 || {}) as Record<string, Record<string, number> | undefined>;
       const 원천버킷 = S(c.원천버킷);
-      const 반환요금 = 원천버킷 === 'LOW_SONOKONG_DAILY' ? low.RENT_RETURN : low.SUBSCRIBE_RETURN;
-      const 인수요금 = 원천버킷 === 'LOW_SONOKONG_DAILY' ? low.RENT_BUYOUT : low.SUBSCRIBE_BUYOUT;
-      for (const [p, rent] of Object.entries(반환요금 || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: 0 }; }
-      for (const [p, rent] of Object.entries(인수요금 || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: 0 }; }
+      const 버킷 = S(c.버킷);
+      const ERP렌트 = sonokongUsesErpRentalDeposit({ sourceBucket: 원천버킷, responseBucket: 버킷 });
+      const 반환요금 = ERP렌트 ? low.RENT_RETURN : low.SUBSCRIBE_RETURN;
+      const 인수요금 = ERP렌트 ? low.RENT_BUYOUT : low.SUBSCRIBE_BUYOUT;
+      const ERP보증금 = (c.보증금 && typeof c.보증금 === 'object') ? c.보증금 as Record<string, unknown> : {};
+      const 반환보증금 = sonokongErpRentalDeposit({ sourceBucket: 원천버킷, estimateType: 'RENT_RETURN', deposits: ERP보증금 });
+      const 인수보증금 = sonokongErpRentalDeposit({ sourceBucket: 원천버킷, estimateType: 'RENT_BUYOUT', deposits: ERP보증금 });
+      for (const [p, rent] of Object.entries(반환요금 || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: 반환보증금 ?? 0 }; }
+      for (const [p, rent] of Object.entries(인수요금 || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: 인수보증금 ?? 0 }; }
       /**
        * ★★**손오공 상품구분은 «요청한 화면 버킷»이 말해 준다.**
        * ```
@@ -303,7 +309,6 @@ async function readRows(): Promise<Row[]> {
        *   탭 가르기가 이 칸을 보므로, 비면 그 차가 통째로 상품리스트로 흘러가 시트 넉 장이 뒤섞인다.
        * ★「오공구독」은 7캐논에 이미 있다 — 손오공 제 물건을 「중고구독」이라 부르던 옛 표기를 여기서 끝낸다.
        */
-      const 버킷 = S(c.버킷);
       const kind = sonokongProductKind({ sourceBucket: 원천버킷, responseBucket: 버킷, used: c.중고 });
       /**
        * ★★**옵션 = 제조사 «선택»옵션만이다** — 사장님 2026-09-10 「옵션은 제조사선택옵션만 옵션이야」.
@@ -318,7 +323,7 @@ async function readRows(): Promise<Row[]> {
        */
       const 선택옵션 = S(c.유료옵션);
       const 상세링크 = /^https?:\/\/.*(?:lotte|tcar|mycarsave)/i.test(S(c.상세url)) ? S(c.상세url) : '';
-      push({ car, sourceBucket: 원천버킷, responseBucket: 버킷, depNote: sonokongDepositRuleText(), link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawSonokongOptionNote: c.손오공출고옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, sourceBucket: 원천버킷, responseBucket: 버킷, rawDepositEvidence: ERP보증금, depNote: sonokongDepositNote({ sourceBucket: 원천버킷, responseBucket: 버킷 }), link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawSonokongOptionNote: c.손오공출고옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -493,6 +498,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
   if (S(row.rawSonokongOptionNote)) rawEvidence.손오공출고옵션 = S(row.rawSonokongOptionNote);
   if (row.rawOptionEvidence && typeof row.rawOptionEvidence === 'object') rawEvidence.옵션근거 = row.rawOptionEvidence;
   if (row.rawLink) rawEvidence.티카링크원문 = row.rawLink;
+  if (row.rawDepositEvidence && typeof row.rawDepositEvidence === 'object') rawEvidence.ERP보증금 = row.rawDepositEvidence;
   const classified = src.kind === 'sonokong'
     ? sonokongProductClassification({ sourceBucket: row.sourceBucket, responseBucket: row.responseBucket, used: row.kind === '중고구독' })
     : null;
@@ -570,6 +576,11 @@ console.log(`  세부모델 ${pctOf(has('sub_model'))} · 세부트림 ${pctOf(h
 console.log(`  외장색 ${pctOf(has('ext_color'))} · 내장색 ${pctOf(has('int_color'))} · 배기량 ${pctOf(has('engine_cc'))} · 상태 ${pctOf(has('status'))} · 주행 ${pctOf(has('mileage'))}`);
 const photoCounts = now.map((a) => Array.isArray(a.image_urls) ? a.image_urls.length : 0);
 console.log(`  실제사진 ${photoCounts.filter(Boolean).length}/${now.length}대 · 전체 ${photoCounts.reduce((sum, count) => sum + count, 0)}장 · 10장 초과 ${photoCounts.filter((count) => count > 10).length}대 · 최대 ${Math.max(0, ...photoCounts)}장`);
+if (src.kind === 'sonokong') {
+  const rentals = now.filter((a) => S(a.product_type) === '중고렌트');
+  const missingRentalDeposit = rentals.filter((a) => !Object.values((a.price || {}) as Record<string, { deposit?: unknown }>).some((term) => Number(term?.deposit) > 0));
+  console.log(`  중고렌트 ERP 보증금: 숫자 확인 ${rentals.length - missingRentalDeposit.length}/${rentals.length}대 · 0/미제공 ${missingRentalDeposit.length}대`);
+}
 
 // 대조 (아는 차 = 우리 것과 같아야)
 const IDF = ['maker', 'model', 'sub_model', 'trim_name', 'ext_color', 'int_color', 'year', 'fuel_type'] as const;
@@ -717,10 +728,13 @@ if (VARIABLE) {
       );
       const classificationMoved = !STATUS_ONLY && src.kind === 'sonokong'
         && jsonSorted(a.sonokong_classification) !== jsonSorted(c.sonokong_classification);
-      if (!sMoved && !classificationMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved && !rawMoved) continue;
+      const depositMoved = !STATUS_ONLY && src.kind === 'sonokong'
+        && (S(a.deposit_note) !== S(c.deposit_note) || jsonSorted(새원문.ERP보증금) !== jsonSorted(옛원문.ERP보증금));
+      if (!sMoved && !classificationMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved && !rawMoved && !depositMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
       if (lMoved && src.kind === 'sonokong') upd.tica_link = S(a.tica_link);
+      if (depositMoved) upd.deposit_note = S(a.deposit_note) || FieldValue.delete();
       if (oMoved) { upd.options = S(a.options); }
       if (옵션갈이 && (oMoved || rawMoved)) {
         const supported = ['tcarPaidOptions', 'sonokongCarOptionNote'].includes(S(새원문.옵션출처));
@@ -734,7 +748,7 @@ if (VARIABLE) {
        * ★`원문` 은 맵이라 merge 로는 키를 «못 지운다» — 통째로 갈아 끼운다(`update`).
        *   ⚠ 「차명」을 같이 날리지 않게 기존 맵을 이어받고 「옵션」 키만 새로 정한다.
        */
-      const 원문갈이 = (oMoved || rawMoved || photoMoved) ? (() => {
+      const 원문갈이 = (oMoved || rawMoved || photoMoved || depositMoved) ? (() => {
         const m: Record<string, unknown> = { ...((c as Record<string, unknown>).원문 as Record<string, unknown> || {}) };
         if (oMoved) {
           delete m.옵션;
@@ -748,6 +762,10 @@ if (VARIABLE) {
           if (S(새원문.손오공출고옵션)) m.손오공출고옵션 = S(새원문.손오공출고옵션); else delete m.손오공출고옵션;
           if (새원문.옵션근거 && typeof 새원문.옵션근거 === 'object') m.옵션근거 = 새원문.옵션근거; else delete m.옵션근거;
           if (S(새원문.티카링크원문)) m.티카링크원문 = S(새원문.티카링크원문); else delete m.티카링크원문;
+        }
+        if (depositMoved) {
+          if (새원문.ERP보증금 && typeof 새원문.ERP보증금 === 'object') m.ERP보증금 = 새원문.ERP보증금;
+          else delete m.ERP보증금;
         }
         return mergeRawPhotoEvidence(m, photoMoved ? ((a.원문 as Record<string, unknown> | undefined)?.사진 as unknown[]) || a.image_urls : []);
       })() : null;
@@ -900,6 +918,7 @@ if (!VARIABLE) for (let i = 0; i < now.length; i += 400) {
      *   ⚠ 요금이 «아예 없는» 차는 안 건드린다 — 못 읽은 것과 없어진 것을 구별할 수 없기 때문이다.
      */
     if (a.price && typeof a.price === 'object' && Object.keys(a.price as object).length) batch.update(ref, { price: a.price });
+    if (src.kind === 'sonokong' && S(a.product_type) === '중고렌트') batch.update(ref, { deposit_note: FieldValue.delete() });
     wrote++;
   }
   await batch.commit();

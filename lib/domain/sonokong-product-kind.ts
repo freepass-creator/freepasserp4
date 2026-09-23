@@ -49,6 +49,31 @@ export function sonokongProductKind(input: {
   return sonokongProductClassification(input).product_type;
 }
 
+export function sonokongUsesErpRentalDeposit(input: {
+  sourceBucket?: unknown;
+  responseBucket?: unknown;
+}): boolean {
+  return sonokongProductClassification(input).product_type === '중고렌트';
+}
+
+/** 손오공 중고렌트 보증금은 ERP 상세 estimates의 LOW/RENT 값을 그대로 쓴다. */
+export function sonokongErpRentalDeposit(input: {
+  sourceBucket?: unknown;
+  estimateType: 'RENT_RETURN' | 'RENT_BUYOUT';
+  deposits?: Record<string, unknown> | null;
+}): number | null {
+  if (!sonokongUsesErpRentalDeposit({ sourceBucket: input.sourceBucket })) return null;
+  const raw = input.deposits?.[input.estimateType];
+  if (raw == null || raw === '') return null;
+  const amount = Number(raw);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
+/** 구독/픽업만 규칙 문구를 쓰며 중고렌트는 ERP 숫자를 쓴다. */
+export function sonokongDepositNote(input: { sourceBucket?: unknown; responseBucket?: unknown }): string {
+  return sonokongUsesErpRentalDeposit(input) ? '' : sonokongDepositRuleText();
+}
+
 /** Firestore 명시 분류를 우선하고, 과거 문서는 product_type으로만 하위호환한다. */
 export function sonokongSalesGroup(atom: Record<string, unknown>): SonokongSalesGroup {
   const explicit = atom.sonokong_classification as Partial<SonokongProductClassification> | undefined;
@@ -63,3 +88,4 @@ export function sonokongSalesGroup(atom: Record<string, unknown>): SonokongSales
   if (productType === '중고렌트' || productType === '오공구독') return '손오공상품';
   return '';
 }
+import { sonokongDepositRuleText } from './sales-published-tabs';

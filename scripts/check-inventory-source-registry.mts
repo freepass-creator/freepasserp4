@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { INVENTORY_SOURCES, getInventorySource, getPolicySource, inventorySourceLocationCount, matchesSharedSourceTab, policySourceLocationCount } from '../lib/domain/inventory-source-registry';
 import { sheetsServiceAccountEmail } from '../lib/server/google-sheets';
 import { readErp5InventoryServiceAccount } from '../lib/server/erp5-inventory-service-account';
-import { sonokongProductClassification, sonokongProductKind, sonokongSalesGroup } from '../lib/domain/sonokong-product-kind';
+import { sonokongDepositNote, sonokongErpRentalDeposit, sonokongProductClassification, sonokongProductKind, sonokongSalesGroup } from '../lib/domain/sonokong-product-kind';
+import { hasDepositRuleViolation } from '../lib/domain/inventory-contract';
 import { directSourceStatusBase } from '../lib/domain/direct-source-status';
 import { resolveStatus } from '../lib/domain/atom-status';
 
@@ -16,6 +17,13 @@ assert.deepEqual(getInventorySource('RP012').channels, ['LOW_SONOKONG_DAILY', 'L
 assert.equal(sonokongProductKind({ sourceBucket: 'LOW_SONOKONG_DAILY', responseBucket: 'SON_NO_KONG' }), '중고렌트');
 assert.equal(sonokongProductKind({ sourceBucket: 'LOW_SONOKONG', responseBucket: 'SON_NO_KONG' }), '오공구독');
 assert.equal(sonokongProductKind({ sourceBucket: 'LOW_TCAR', responseBucket: 'TCAR_EXTERNAL' }), '픽업구독');
+assert.equal(sonokongErpRentalDeposit({ sourceBucket: 'LOW_SONOKONG_DAILY', estimateType: 'RENT_RETURN', deposits: { RENT_RETURN: 1750000 } }), 1750000, '중고렌트는 ERP 보증금 원문을 그대로 쓴다');
+assert.equal(sonokongErpRentalDeposit({ sourceBucket: 'LOW_SONOKONG', estimateType: 'RENT_RETURN', deposits: { RENT_RETURN: 1750000 } }), null, '구독 버킷에 중고렌트 ERP 보증금을 섞지 않는다');
+assert.equal(sonokongErpRentalDeposit({ sourceBucket: 'LOW_SONOKONG_DAILY', estimateType: 'RENT_BUYOUT', deposits: { RENT_BUYOUT: '1234567' } }), 1234567, 'ERP 보증금은 천원 반올림하지 않는다');
+assert.equal(sonokongDepositNote({ sourceBucket: 'LOW_SONOKONG_DAILY' }), '', '중고렌트에 구독 보증금 규칙을 싣지 않는다');
+assert.equal(sonokongDepositNote({ sourceBucket: 'LOW_SONOKONG' }), '월 대여료 × 약정연수 (최대 3개월)', '오공구독은 규칙 문구를 유지한다');
+assert.equal(hasDepositRuleViolation({ product_type: '중고렌트', deposit_note: '월 대여료 × 약정연수 (최대 3개월)', price: { '36': { deposit: 1234567 } } }), false, '과거 규칙 문구가 남아도 중고렌트 ERP 숫자를 막지 않는다');
+assert.equal(hasDepositRuleViolation({ product_type: '오공구독', deposit_note: '월 대여료 × 약정연수 (최대 3개월)', price: { '36': { deposit: 1234567 } } }), true, '구독 규칙 문구와 숫자 보증금의 모순은 막는다');
 assert.deepEqual(sonokongProductClassification({ sourceBucket: 'LOW_SONOKONG_DAILY', responseBucket: 'SON_NO_KONG' }), {
   schema: 'sonokong-product-v1', source_bucket: 'LOW_SONOKONG_DAILY', response_bucket: 'SON_NO_KONG', product_type: '중고렌트', sales_group: '손오공상품',
 });

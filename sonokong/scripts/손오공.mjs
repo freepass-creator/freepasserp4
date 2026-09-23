@@ -19,12 +19,14 @@ const 캐시규격 = 'sonokong-route-bucket-v4-current-identity';
 const N = (n) => (n == null ? '' : Number(n).toLocaleString('ko-KR'));
 const 날 = (s) => (s ? String(s).slice(0, 10) : '');
 
-function 보증금뽑기(estimates) {
+function 보증금뽑기(estimates, 원천버킷) {
   const out = {};
+  const 상품접두사 = 원천버킷 === 'LOW_SONOKONG_DAILY' ? 'RENT_' : 'SUBSCRIBE_';
   for (const e of estimates || []) {
+    if (e.creditType !== 'LOW' || !String(e.estimateType || '').startsWith(상품접두사)) continue;
     if (e.securityDepositAmount != null) out[e.estimateType] = Number(e.securityDepositAmount);
   }
-  return out; // { SUBSCRIBE_BUYOUT: n, SUBSCRIBE_RETURN: n }
+  return out; // 렌트={RENT_BUYOUT,RENT_RETURN}, 구독={SUBSCRIBE_BUYOUT,SUBSCRIBE_RETURN}
 }
 
 // 저신용 월납 — 상세 estimates(creditType LOW)에서. 목록보다 완전하다(인수형 12·24 포함).
@@ -114,7 +116,7 @@ function 정규화(r, d, 버킷값, 원천버킷) {
       const e = 월납뽑기(d?.estimates, 원천버킷);
       return Object.keys(e).length ? e : (r.lowCreditMonthlyPrices || null);
     })(), // 렌트는 RENT_*, 구독/픽업은 SUBSCRIBE_* 상세 estimates 우선
-    보증금: 보증금뽑기(d?.estimates),                    // {SUBSCRIBE_BUYOUT,SUBSCRIBE_RETURN}
+    보증금: 보증금뽑기(d?.estimates, 원천버킷),          // ERP LOW estimate의 securityDepositAmount 원문
   };
 }
 

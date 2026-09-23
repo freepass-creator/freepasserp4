@@ -24,6 +24,8 @@ export type InventoryAtomLike = {
   partner_code?: unknown;
   source?: unknown;
   source_schema?: unknown;
+  product_type?: unknown;
+  sonokong_classification?: unknown;
 };
 
 export const UNAVAILABLE_INVENTORY_STATUS = '출고불가' as const;
@@ -81,7 +83,7 @@ export type InventoryCountSnapshot = {
 };
 
 /**
- * 한 원자의 보증금 규격 위반 여부 — 규칙 글자를 싣고도 계산된 숫자를 남겼는가.
+ * 한 원자의 구독/픽업 보증금 규격 위반 여부 — 규칙 글자를 싣고도 계산된 숫자를 남겼는가.
  * ★규칙·글자 정본은 `sales-published-tabs.sonokongDepositRuleText()` 다. 여기서는 «숫자가 남았는지»만 본다
  *   (글자 내용을 여기서 다시 적으면 문장이 두 곳에 생긴다 — 그래서 존재 여부만 본다).
  */
@@ -93,6 +95,8 @@ export function hasDepositRuleViolation(atom: InventoryAtomLike): boolean {
    *   (그 3대는 「무보증」인데 보증금 숫자가 있는 «원천 모순»이라 따로 볼 일이다 — 여기서 삼키지 않는다.)
    */
   if (String(atom.deposit_note ?? '').trim() !== sonokongDepositRuleText()) return false;
+  const classification = atom.sonokong_classification as { product_type?: unknown } | undefined;
+  if (String(classification?.product_type ?? atom.product_type ?? '').trim() === '중고렌트') return false;
   const price = atom.price;
   if (!price || typeof price !== 'object') return false;
   return Object.values(price as Record<string, { deposit?: unknown }>)
@@ -124,13 +128,14 @@ export function inventoryCountSnapshot(atoms: readonly InventoryAtomLike[]): Inv
     // 판매차를 삭제로 처리하면 안 된다. 발견은 하되 대수 계약을 몰래 바꾸지 않는다.
     if (hasDeletedInventoryMarker(atom)) deletedMarkerViolations++;
     /**
-     * ★★**보증금은 «숫자로 계산해 박지 않는다» — 규칙 글자로 싣는다.**
+     * ★★**구독/픽업 보증금은 «숫자로 계산해 박지 않는다» — 규칙 글자로 싣는다.**
      *   사장님 2026-09-17 「손오공 보증금 ssot에 제대로 반영 안된거 같음」·「규칙 글자로」·
      *   「ssot에 박아서 누가 업데이트하더라도 바뀌게끔」.
      *   ⇒ 규격을 «발행 문지기»에 박는다. 누가 어떤 도구로 계산값을 다시 박아도, 그 원자로는
      *     F01·F86 발행이 멈춘다(두 발행기가 이 한 문지기를 본다).
      *   판정: `deposit_note`(규칙 글자)가 있는 원자에 `price[기간].deposit > 0` 이 남아 있으면 위반이다.
      *     판매시트는 보증금 칸이 «빌 때만» 규칙 글자를 쓰므로, 숫자가 남으면 규칙 글자가 영영 안 보인다.
+     *   손오공 중고렌트는 ERP RENT_* 보증금 숫자가 정본이며 이 규칙 검사 대상이 아니다.
      *   ⚠ 규칙 글자가 «없는» 공급사는 숫자 보증금이 정상이다(원천이 금액으로 준다) — 건드리지 않는다.
      */
     if (hasDepositRuleViolation(atom)) depositRuleViolations++;
