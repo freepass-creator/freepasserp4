@@ -134,6 +134,7 @@ const VALIDATED_ENGINES = [
   '8af50fda4a5541245d4f2e1e650bfc0cbe0ea059', // preserve F01 semantic manufacturer/fuel/color rules in F86 retro presentation
   '26977f35d65f780662eefa75c605fea492656da1', // permanently forbid the retired F86 summary tab and lock exact tab naming
   '639ae01a7646d92c6d91048a37d685991ec8a786', // preserve F86 product-type colors and keep the post-publish long-fee audit executable
+  'acd97be170cb03bb938d8c2de4672f1b08975e15', // 손오공상품 대표사진 셀 + 원문/doc_images 공개 경계 + F01/F86 readback
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
