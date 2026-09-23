@@ -199,7 +199,7 @@ for (const tab of plan.tabs) {
   /**
    * 기존 탭 값을 먼저 통째로 비우지 않는다. 열린 Google Sheets 화면은 이 요청과 뒤의 values:batchUpdate
    * 사이를 실제 빈 시트로 받아 "변경사항이 많습니다"와 빈 격자를 남길 수 있다. 새 직사각형은 아래
-   * values:batchUpdate가 모든 셀(빈 문자열 포함)을 덮고, 줄·열 감소분은 gridProperties 축소가 제거한다.
+   * values:batchUpdate가 새 표와 아래 여유 30줄을 한 요청으로 덮고, 열 감소분은 gridProperties 축소가 제거한다.
    * 따라서 기존 sheetId와 현재 값을 유지한 채 새 값으로 바로 교체한다.
    */
   for (let k = 0; k < (old ? 규칙수.get(gid) || 0 : 0); k++) reqs.push({ deleteConditionalFormatRule: { sheetId: gid, index: 0 } });
@@ -221,7 +221,8 @@ for (const tab of plan.tabs) {
   reqs.push(RETRO ? retroTabColorRequest(gid, company) : { updateSheetProperties: { properties: { sheetId: gid, tabColor: TAB_HUES[index % TAB_HUES.length] }, fields: 'tabColor' } });
   if (RETRO) reqs.push(...presentationFormatRequests('F86', gid, company, cols));
   reqs.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: rows.length + 1, startColumnIndex: 0, endColumnIndex: cols.length } } } });
-  puts.push({ range: `'${title}'!A1`, values: [cols, ...values] });
+  const blankTail = Array.from({ length: 30 }, () => Array(cols.length).fill(''));
+  puts.push({ range: `'${title}'!A1`, values: [cols, ...values, ...blankTail] });
   쓴탭.add(gid);
   index++;
 }

@@ -89,6 +89,8 @@ must(!read('lib/domain/channel-retro-skin.ts').includes('RETRO_SUMMARY_TAB')
   '폐기한 「종합」 탭 생성 경로가 남았습니다 — F86은 기본 4탭 뒤 회사명 탭만 허용합니다.', `${SKIN} · build-channel-supplier-sheet — ${MANUAL} 1`);
 must(!/updateCells:\s*\{\s*range:\s*\{\s*sheetId:\s*gid\s*\},\s*fields:\s*['"]userEnteredValue['"]/.test(read('scripts/build-channel-supplier-sheet.mts')),
   'F86 기존 탭 값을 통째로 먼저 비우는 경로가 남았습니다 — 열린 시트가 빈 화면으로 멈출 수 있습니다.', 'scripts/build-channel-supplier-sheet.mts · in-place publish');
+must(/blankTail[\s\S]*values:\s*\[cols,\s*\.\.\.values,\s*\.\.\.blankTail\]/.test(read('scripts/build-channel-supplier-sheet.mts')),
+  'F86 인플레이스 발행이 아래 여유 행까지 같은 요청으로 덮지 않습니다 — 줄 수 감소 때 묵은 차량이 남습니다.', 'scripts/build-channel-supplier-sheet.mts · atomic tail cleanup');
 
 /* ── ④ 겉 — 레트로 ───────────────────────────────────────────── */
 must(RETRO_FONT === 'Malgun Gothic' && RETRO_SIZE === 9 && RETRO_ROW_PX === 21, `글꼴·크기·줄 높이가 바뀌었습니다: ${RETRO_FONT} ${RETRO_SIZE}pt · 줄 ${RETRO_ROW_PX}`, `${SKIN} — ${MANUAL} 4`);
