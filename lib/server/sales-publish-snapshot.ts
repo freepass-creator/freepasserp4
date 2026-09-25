@@ -81,6 +81,9 @@ export function readSalesPublishSnapshot(path: string, options: { maxAgeMs?: num
   const actualHash = hashSalesPublishSnapshotPayload(unsigned);
   if (actualHash !== payloadHash) throw new Error(`판매 스냅샷 해시 불일치: ${path}`);
   if (value.source === 'freepass-data') {
+    if (!['LEGACY_VERIFIED_BRIDGE', 'CANONICAL_ACTIVE'].includes(value.releaseAuthority ?? '')) {
+      throw new Error(`FreePass Data release authority 누락: ${path}`);
+    }
     const release = value.approvedRelease;
     const required = ['projectionId', 'releaseId', 'manifestId', 'inputDigest', 'dataDigest', 'observedAt'] as const;
     if (!release || required.some((key) => !String(release[key] ?? '').trim())) {
