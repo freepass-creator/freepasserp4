@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { after } from 'next/server';
-import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
+import { readFreepassCatalog } from '@/lib/server/freepass-catalog';
 import { observeFreepassDataShadow } from '@/lib/server/freepass-data-shadow';
 import { sanitizeAgentForGuest, sanitizeProductForGuest, slimForList } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
@@ -26,7 +26,7 @@ const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) 
  *     머리말) · 「대수가 두 군데서 세어져 어느 숫자도 못 믿게 된다」(CLAUDE.md).
  *   ⇒ **필터가 세는 모수와 목록이 세는 모수는 같은 함수에서 나와야 한다.**
  *
- * ★비싼 읽기는 아래 `readWhitelabelCatalogFromErp5` 가 60초 쥔다 — 그래서 껍데기가 이걸 또 불러도
+ * ★비싼 읽기는 아래 `readFreepassCatalog` 경계가 60초 캐시를 재사용한다 — 그래서 껍데기가 이걸 또 불러도
  *   Firestore 를 두 번 읽지 않는다(그 머리말 참고).
  */
 export async function loadGuestListing(options: { providerCode?: string; share?: string } = {}): Promise<{
@@ -47,7 +47,7 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
    * ★Firestore 장애는 오래된 RTDB 자료로 숨기지 않는다 — 부르는 쪽이 503 으로 드러낸다.
    *   그래야 웹과 모바일이 서로 다른 원장을 보고 다른 재고를 표시하는 일이 없다.
    */
-  const src = await readWhitelabelCatalogFromErp5({ includePartners: !!providerCode, includeUsers: !!share });
+  const src = await readFreepassCatalog({ includePartners: !!providerCode, includeUsers: !!share });
   const policies = Object.entries(src.policies).map(([policyKey, value]) => ({ ...(value || {}), _key: policyKey } as Rec));
 
   const products: EntityRecord[] = [];
