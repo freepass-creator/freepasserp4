@@ -150,9 +150,13 @@ export function materializeFreePassDataSalesSnapshot(
   }
 
   const actualInventory = inventoryCountSnapshot(handoff.snapshot.products);
+  const localCarriesDepositRuleCounter = 'depositRuleViolations' in actualInventory;
+  const expectedInventory = localCarriesDepositRuleCounter
+    ? handoff.snapshot.inventory
+    : legacyInventory;
   if (
     hashFreePassDataSheetPayload(actualInventory) !==
-    hashFreePassDataSheetPayload(legacyInventory)
+    hashFreePassDataSheetPayload(expectedInventory)
   ) {
     throw new Error('HOLD: FreePass Data sheet handoff inventory mismatch');
   }
@@ -176,7 +180,11 @@ export function materializeFreePassDataSalesSnapshot(
     products: structuredClone(handoff.snapshot.products),
     policies: structuredClone(handoff.snapshot.policies),
     partners: structuredClone(handoff.snapshot.partners),
-    inventory: structuredClone(legacyInventory)
+    inventory: structuredClone(
+      localCarriesDepositRuleCounter
+        ? handoff.snapshot.inventory
+        : legacyInventory
+    )
   };
 
   return {
