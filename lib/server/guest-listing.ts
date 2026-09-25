@@ -101,7 +101,7 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
    */
   if (!providerCode && !share) {
     after(async () => {
-      const hasAny = (counts: Record<string, number>) => Object.values(counts).some((count) => count > 0);
+      const hasAny = (counts: typeof contractDiagnostics.inputIssues) => Object.values(counts).some((count) => count > 0);
       if (
         hasAny(contractDiagnostics.inputIssues)
         || hasAny(contractDiagnostics.publishedIssues)
