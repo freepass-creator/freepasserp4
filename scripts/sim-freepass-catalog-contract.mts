@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
   FREEPASS_CATALOG_CONTRACT_VERSION, FREEPASS_CATALOG_ISSUES,
-  catalogProductId, catalogVehicleIdentity, inspectFreepassCatalogProduct,
+  catalogProductId, catalogVehicleIdentity, diffFreepassCatalogIssues, inspectFreepassCatalogProduct,
   summarizeFreepassCatalogIssues, type FreepassCatalogContractIssue, type FreepassCatalogProduct,
 } from '../lib/domain/freepass-catalog-contract.js';
 
@@ -84,6 +84,21 @@ assert.equal(counts['invalid-price'], 1);
 assert.equal(counts['invalid-deposit'], 1);
 for (const issue of FREEPASS_CATALOG_ISSUES) assert.equal(typeof counts[issue], 'number');
 assert.deepEqual(summarizeFreepassCatalogIssues([]), Object.fromEntries(FREEPASS_CATALOG_ISSUES.map((x) => [x, 0])));
+
+const masked = diffFreepassCatalogIssues(
+  { ...good, price: { '12': { rent: '670000', deposit: 0 } } },
+  good,
+);
+assert.deepEqual(masked.source, ['invalid-price']);
+assert.deepEqual(masked.published, []);
+assert.deepEqual(masked.maskedByAdapter, ['invalid-price']);
+assert.deepEqual(masked.introducedByAdapter, []);
+
+const introduced = diffFreepassCatalogIssues(good, { ...good, mileage: -1 });
+assert.deepEqual(introduced.source, []);
+assert.deepEqual(introduced.published, ['invalid-mileage']);
+assert.deepEqual(introduced.maskedByAdapter, []);
+assert.deepEqual(introduced.introducedByAdapter, ['invalid-mileage']);
 
 // Compile-time fence: assertions/casts are not a substitute for these checks.
 type AssertFalse<T extends false> = T;
