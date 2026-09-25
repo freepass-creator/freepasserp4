@@ -61,57 +61,108 @@ export type FreepassCatalogProduct = {
   _policy?: FreepassCatalogPolicy;
 };
 
-export type FreepassCatalogContractIssue =
-  | 'missing-product-id'
-  | 'missing-vehicle-identity'
-  | 'missing-price'
-  | 'invalid-price';
+/** Issue counts are per product, not per bad rate or image. Existing codes stay stable. */
+export const FREEPASS_CATALOG_ISSUES = [
+  'missing-product-id',
+  'missing-vehicle-identity',
+  'missing-price',
+  'invalid-price',
+  'invalid-product',
+  'invalid-term',
+  'invalid-deposit',
+  'invalid-mileage',
+  'invalid-image-url',
+] as const;
+export type FreepassCatalogContractIssue = (typeof FREEPASS_CATALOG_ISSUES)[number];
 
-const S = (value: unknown) => String(value ?? '').trim();
+type UnknownRecord = Record<string, unknown>;
+const isRecord = (value: unknown): value is UnknownRecord =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+const text = (value: unknown): string => typeof value === 'string' ? value.trim() : '';
+const finiteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
 
-export function catalogProductId(product: FreepassCatalogProduct): string {
-  return S(product.product_code || product._key);
+export function catalogProductId(product: unknown): string {
+  return isRecord(product) ? text(product.product_code) || text(product._key) : '';
 }
 
-export function catalogVehicleIdentity(product: FreepassCatalogProduct): string {
-  return S(product.car_number || product.vin);
+export function catalogVehicleIdentity(product: unknown): string {
+  return isRecord(product) ? text(product.car_number) || text(product.vin) : '';
 }
 
-export function inspectFreepassCatalogProduct(
-  product: FreepassCatalogProduct,
-): FreepassCatalogContractIssue[] {
-  const issues: FreepassCatalogContractIssue[] = [];
-  if (!catalogProductId(product)) issues.push('missing-product-id');
-  if (!catalogVehicleIdentity(product)) issues.push('missing-vehicle-identity');
+/** Keep mileage variants such as 24_3만 intact; validate only their month axis. */
+function validTerm(key: string): boolean {
+  const match = /^(\d{1,2})(?:_.+)?$/u.exec(key);
+  if (!match) return false;
+  const months = Number(match[1]);
+  return Number.isInteger(months) && months >= 1 && months <= 60;
+}
+
+/** Syntax only: this does not fetch a URL or authorize its host for a photo proxy. */
+function validImageUrl(value: unknown): boolean {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const url = value.trim();
+  if (/[\u0000-\u0020\u007f\\]/u.test(url)) return false;
+  if (url.startsWith('/')) return !url.startsWith('//');
+  if (!/^https?:\/\//i.test(url)) return false;
+  try {
+    const parsed = new URL(url);
+    return !!parsed.hostname && !parsed.username && !parsed.password;
+  } catch { return false; }
+}
+
+/**
+ * Observe untrusted public payloads without coercing, mutating or removing products.
+ * This is a diagnostic, not a complete schema guard or a source-cutover approval.
+ * Optional year/trim/photographs are not made prerequisites for finding a vehicle.
+ */
+export function inspectFreepassCatalogProduct(product: unknown): FreepassCatalogContractIssue[] {
+  if (!isRecord(product)) return ['invalid-product'];
+  const issues = new Set<FreepassCatalogContractIssue>();
+  if (!catalogProductId(product)) issues.add('missing-product-id');
+  if (!catalogVehicleIdentity(product)) issues.add('missing-vehicle-identity');
 
   const price = product.price;
-  if (!price || typeof price !== 'object' || Array.isArray(price)) {
-    issues.push('missing-price');
-    return issues;
+  if (price == null) {
+    issues.add('missing-price');
+  } else if (!isRecord(price)) {
+    issues.add('invalid-price');
+  } else {
+    const rates = Object.entries(price);
+    if (!rates.length) issues.add('missing-price');
+    for (const [key, rate] of rates) {
+      if (!validTerm(key)) issues.add('invalid-term');
+      if (!isRecord(rate)) {
+        issues.add('invalid-price');
+        continue;
+      }
+      // Number(true), Number('670000') and Number(null) must not make a bad value valid.
+      if (!finiteNumber(rate.rent) || rate.rent <= 0) issues.add('invalid-price');
+      if (!finiteNumber(rate.deposit) || rate.deposit < 0) issues.add('invalid-deposit');
+    }
   }
 
-  const terms = Object.values(price as Record<string, unknown>);
-  if (!terms.length) {
-    issues.push('missing-price');
-    return issues;
+  // Unknown mileage is not a claim of 0 km; inspect only an explicitly supplied value.
+  const mileage = product.mileage;
+  if (mileage != null && mileage !== '' && (!finiteNumber(mileage) || mileage < 0)) {
+    issues.add('invalid-mileage');
   }
 
-  const hasValidRate = terms.some((value) => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    const rent = Number((value as Record<string, unknown>).rent);
-    return Number.isFinite(rent) && rent > 0;
-  });
-  if (!hasValidRate) issues.push('invalid-price');
-  return issues;
+  if (product.image_url != null && product.image_url !== '' && !validImageUrl(product.image_url)) {
+    issues.add('invalid-image-url');
+  }
+  if (product.image_urls != null) {
+    if (!Array.isArray(product.image_urls) || product.image_urls.some((url) => !validImageUrl(url))) {
+      issues.add('invalid-image-url');
+    }
+  }
+  // photo_link may contain folder/source lists, not a resolved image URL; do not rewrite it.
+  return [...issues];
 }
 
-export function summarizeFreepassCatalogIssues(products: FreepassCatalogProduct[]) {
-  const counts: Record<FreepassCatalogContractIssue, number> = {
-    'missing-product-id': 0,
-    'missing-vehicle-identity': 0,
-    'missing-price': 0,
-    'invalid-price': 0,
-  };
+export function summarizeFreepassCatalogIssues(products: readonly unknown[]) {
+  const counts = Object.fromEntries(FREEPASS_CATALOG_ISSUES.map((issue) => [issue, 0])) as
+    Record<FreepassCatalogContractIssue, number>;
   for (const product of products) {
     for (const issue of inspectFreepassCatalogProduct(product)) counts[issue] += 1;
   }
