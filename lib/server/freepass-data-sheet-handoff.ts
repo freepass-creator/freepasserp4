@@ -150,13 +150,9 @@ export function materializeFreePassDataSalesSnapshot(
   }
 
   const actualInventory = inventoryCountSnapshot(handoff.snapshot.products);
-  const localCarriesDepositRuleCounter = 'depositRuleViolations' in actualInventory;
-  const expectedInventory = localCarriesDepositRuleCounter
-    ? handoff.snapshot.inventory
-    : legacyInventory;
   if (
     hashFreePassDataSheetPayload(actualInventory) !==
-    hashFreePassDataSheetPayload(expectedInventory)
+    hashFreePassDataSheetPayload(legacyInventory)
   ) {
     throw new Error('HOLD: FreePass Data sheet handoff inventory mismatch');
   }
@@ -180,11 +176,10 @@ export function materializeFreePassDataSalesSnapshot(
     products: structuredClone(handoff.snapshot.products),
     policies: structuredClone(handoff.snapshot.policies),
     partners: structuredClone(handoff.snapshot.partners),
-    inventory: structuredClone(
-      localCarriesDepositRuleCounter
-        ? handoff.snapshot.inventory
-        : legacyInventory
-    )
+    // Keep the Data-owned publication gate evidence in the transported snapshot.
+    // Main's reader explicitly tolerates this known extra counter; the production
+    // pinned engine already has the same counter in its native inventory contract.
+    inventory: structuredClone(handoff.snapshot.inventory)
   };
 
   return {
