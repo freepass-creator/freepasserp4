@@ -100,6 +100,19 @@ assert.throws(
   /consumer\/workbook mismatch/
 );
 
+
+const missingManifestUnsigned = {
+  ...unsigned,
+  manifest: undefined
+} as unknown as Omit<FreePassDataSheetHandoff, 'handoffHash'>;
+assert.throws(
+  () => materializeFreePassDataSalesSnapshot({
+    ...missingManifestUnsigned,
+    handoffHash: hashFreePassDataSheetHandoff(missingManifestUnsigned)
+  } as FreePassDataSheetHandoff),
+  /manifest missing/
+);
+
 const badInventoryUnsigned = {
   ...unsigned,
   snapshot: {
@@ -140,4 +153,4 @@ try {
   await rm(dir, { recursive: true, force: true });
 }
 
-console.log('PASS freepass-data sheet handoff: 6/6');
+console.log('PASS freepass-data sheet handoff: 7/7');
