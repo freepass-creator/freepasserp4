@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import 'server-only';
 import { channelSellsProduct } from '@/lib/whitelabel';
-import { readCanonicalCatalogFromErp5, readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
+import { readFreepassCatalog } from '@/lib/server/freepass-catalog';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
@@ -21,7 +21,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
 
 export type GuestQuote = { product: EntityRecord; agent: Rec | null };
-const readGuestCatalog = cache(readCanonicalCatalogFromErp5);
+const readGuestCatalog = cache(readFreepassCatalog);
 
 /** 한 조각으로 상품 찾기 — RTDB 키 · product_code · 짧은 토큰(shareToken) 순. */
 function findProduct(all: Record<string, Rec>, raw: string): { key: string; product: Rec } | null {
@@ -48,8 +48,8 @@ function findProduct(all: Record<string, Rec>, raw: string): { key: string; prod
  *   같은 링크가 화면마다 다르게 풀리면 「손님은 열리는데 영업자 칸만 없다」가 된다.
  * ⚠ **통째로 먼저 찾고, 못 찾을 때만 하이픈에서 가른다** — 반대로 하면 `PD-260506-020` 같은
  *   하이픈 품은 상품키 599건(2026-08-22 실측)이 전부 «없는 상품»이 되어 이미 나간 링크가 죽는다.
- * ★파이어스토어만 읽는다(사장님 2026-09-05 「RTDB 안 쓴다니까? 파이어스토어만 갖고 와」).
- *   ⚠ 문서 id 는 «차번»이고 RTDB 키는 「공급사_차번」이었다 — 키는 `_key || product_code || id` 차례.
+ * ★공개 상세도 목록과 같은 `FreePass Catalog Consumer Boundary`를 읽는다.
+ *   현재 구현은 검증된 ERP5 reader에 위임하지만 저장소 세대 전환은 이 파일이 아니라 consumer boundary 한 곳에서만 한다.
  */
 export async function resolveProduct(segment: string): Promise<{ key: string; product: Rec; share: string } | null> {
   const seg = S(segment);
@@ -92,16 +92,14 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, o
   if (!seg) return null;
 
   /*
-   * ★★**파이어스토어만 읽는다**(사장님 2026-09-05 「RTDB 안 쓴다니까? 파이어스토어만 갖고 와」).
-   *   재고 `products` · 정책 `policy` · 사용자 `user`.
-   * ⚠ 문서 id 는 «차번»이고 RTDB 키는 「공급사_차번」이었다 — 키는 `_key || product_code || id` 차례로 잡는다.
-   *   `findProduct` 가 키 «또는» `product_code` 로 찾으므로 이미 나간 공유 링크가 그대로 열린다.
+   * 공개 상세는 목록과 같은 FreePass Catalog Consumer Boundary를 쓴다.
+   * 현재 저장소 구현 세대와 관계없이 `findProduct`는 키 또는 `product_code`로 기존 공유 링크를 유지한다.
    */
   let share = S(shareFromQuery);
   const hit = await resolveProduct(seg);
   if (!hit) return null;
   if (hit.share && !share) share = hit.share;
-  const src = await readWhitelabelCatalogFromErp5({ includeUsers: true });
+  const src = await readGuestCatalog({ includeUsers: true });
   const { key, product } = hit;
   if (!product || dead(product)) return null;
   /*
