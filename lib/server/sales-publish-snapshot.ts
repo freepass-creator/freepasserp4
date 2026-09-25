@@ -97,6 +97,21 @@ export function readSalesPublishSnapshot(path: string, options: { maxAgeMs?: num
   const maxAgeMs = options.maxAgeMs ?? SALES_PUBLISH_MAX_AGE_MS;
   if (!Number.isFinite(ageMs) || ageMs < -5 * 60_000 || ageMs > maxAgeMs) throw new Error(`판매 스냅샷이 오래됐거나 시각이 잘못됐다: ${path}`);
   const actualInventory = inventoryCountSnapshot(value.products);
-  if (JSON.stringify(actualInventory) !== JSON.stringify(value.inventory)) throw new Error(`판매 스냅샷 재고 집계 불일치: ${path}`);
+  if (value.source === 'freepass-data') {
+    const incomingInventory = value.inventory as unknown as Record<string, unknown>;
+    const localInventory = actualInventory as unknown as Record<string, unknown>;
+    const unsupportedInventoryFields = Object.keys(incomingInventory)
+      .filter((key) => !(key in localInventory) && key !== 'depositRuleViolations');
+    const depositRuleViolations = incomingInventory.depositRuleViolations ?? 0;
+    const mismatch = unsupportedInventoryFields.length > 0 ||
+      !Number.isInteger(depositRuleViolations) ||
+      Number(depositRuleViolations) !== 0 ||
+      Object.entries(localInventory).some(([key, item]) =>
+        JSON.stringify(item) !== JSON.stringify(incomingInventory[key])
+      );
+    if (mismatch) throw new Error(`판매 스냅샷 재고 집계 불일치: ${path}`);
+  } else if (JSON.stringify(actualInventory) !== JSON.stringify(value.inventory)) {
+    throw new Error(`판매 스냅샷 재고 집계 불일치: ${path}`);
+  }
   return value;
 }
