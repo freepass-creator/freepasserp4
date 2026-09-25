@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 // Keep the existing whitelabel gate and execute offline value regressions too.
-import './sim-freepass-catalog-contract.mjs';
+import './sim-freepass-catalog-contract.mts';
 
 const PUBLIC_SURFACE_FILES = [
   'app/(shop)/shop/ShopView.tsx',
