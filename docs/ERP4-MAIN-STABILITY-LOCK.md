@@ -1,11 +1,11 @@
-# ERP4 MAIN · Stability Lock
+# FreePassERP.com v1 · Stability Lock
 
-최종: 2026-09-21  
+최종: 2026-09-26  
 상태: **CURRENT / 안정화 규격 잠금**
 
 ## 목적
 
-ERP4 MAIN은 더 이상 구조를 탐색하는 단계가 아니다.  
+FreePassERP.com v1은 더 이상 구조를 탐색하는 단계가 아니다.  
 **현재 제품 정의를 기준선으로 고정하고, 이후 변경은 오류 수정·정합성·성능·접근성 개선만 허용한다.**
 
 정본 UI/제품 정의는 `docs/ERP4-MAIN-UI-STANDARD.md`이며, **현재 쓰는 면/안 쓰는 면은 `docs/ERP4-MAIN-SURFACE-LOCK.md`**가 잠근다. 이 문서는 그 정본에서 **바뀌면 안 되는 경계**를 요약한다.
@@ -14,17 +14,19 @@ ERP4 MAIN은 더 이상 구조를 탐색하는 단계가 아니다.
 
 ### LOCK-01 · 제품/인증 분리
 
-- `freepasserp.com` ERP4 MAIN = 공개 Product Browse.
-- 로그인·회원가입·세션은 ERP4 MAIN 기능이 아니다.
+- `freepasserp.com` FreePassERP.com v1 = 공개 Product Browse.
+- 로그인·회원가입·세션은 FreePassERP.com v1 기능이 아니다.
 - 공개 상품 요청은 `AuthProvider`를 마운트하지 않는다.
 - 대표 ERP 도메인(`freepasserp.com`·`www`)의 `/login`과 은퇴한 업무 진입점은 canonical 공개 상품 홈으로 정리한다. 공개 상품·공유·전자계약 URL은 보존한다.
 - 로그인 구현을 저장소에 남기는 것은 허용하지만 별도/레거시 업무 인증 기능으로만 취급한다.
 
-### LOCK-02 · ERP5 공개 데이터 경계
+### LOCK-02 · FreePass Catalog 공개 데이터 경계
 
-- 공개 목록의 상품 원장은 ERP5 canonical catalog다.
-- 공개 화면은 레거시 ERP4 RTDB/store로 fallback하지 않는다.
+- 공개 목록·상세·갱신시각은 모두 `lib/server/freepass-catalog.ts`의 **FreePass Catalog Consumer Boundary**를 통과한다.
+- 현재 구현은 검증된 ERP5 reader에 위임하지만, FreePass Data parity/cutover 시 저장소 세대 변경은 이 경계 한 곳에서만 수행한다.
+- 공개 화면은 레거시 RTDB/store 또는 별도 ERP4 상태기록으로 fallback하지 않는다.
 - 목록은 guest sanitize를 거치고, 상세용 다중 사진 등 불필요한 필드는 list slim 단계에서 제거한다.
+- FreePass Data shadow 관측은 고객 응답 critical path를 막지 않는다.
 - 웹·모바일은 같은 상품 원장과 같은 query domain을 사용한다.
 
 ### LOCK-03 · 디자인 규격
@@ -58,6 +60,7 @@ ERP4 MAIN은 더 이상 구조를 탐색하는 단계가 아니다.
 - 목록이 `liveQuery`로 계산되면 카드 가격도 `liveQuery.sel`을 사용한다.
 - 필터 숫자와 실제 목록은 같은 query engine을 사용한다.
 - 웹/모바일이 별도 필터 로직을 만들지 않는다.
+- 빠른조건 구성은 `lib/whitelabel.ts` 한 곳에서 정하고, Firestore `shop_quick` 같은 runtime override를 활성 UI 정본으로 사용하지 않는다.
 - 세부 정본: `docs/ERP4-PRICE-ROW-CONTRACT.md`.
 
 ### LOCK-05 · 성능 기준
@@ -84,8 +87,8 @@ ERP4 MAIN은 더 이상 구조를 탐색하는 단계가 아니다.
 
 사용자 승인 없이 다음을 하지 않는다.
 
-- 로그인/업무 ERP를 ERP4 MAIN에 다시 연결
-- 공개 데이터 원장을 ERP4/RTDB로 회귀
+- 로그인/업무 ERP를 FreePassERP.com v1에 다시 연결
+- 공개 데이터 경계를 우회해 ERP5/RTDB/별도 상태 원장을 화면에서 직접 읽기
 - 목록과 상세를 서로 다른 디자인 체계로 분리
 - 웹/모바일에 별도 비즈니스 로직 생성
 - 필터·가격·보증금을 서로 다른 기간 행에서 조합
