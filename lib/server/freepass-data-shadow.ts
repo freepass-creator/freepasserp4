@@ -27,6 +27,8 @@ type FreepassDataResponse = {
 export type FreepassDataShadowObservation = {
   state: 'DISABLED' | 'SKIPPED' | 'OBSERVED' | 'ERROR';
   activeCount: number;
+  /** @deprecated telemetry compatibility alias; use activeCount in new consumers. */
+  legacyCount: number;
   canonicalCount: number | null;
   comparablePlateCount: number;
   matchedPlateCount: number;
@@ -61,6 +63,7 @@ function empty(state: FreepassDataShadowObservation['state'], activeCount: numbe
   return {
     state,
     activeCount,
+    legacyCount: activeCount,
     canonicalCount: null,
     comparablePlateCount: 0,
     matchedPlateCount: 0,
@@ -117,6 +120,7 @@ export async function observeFreepassDataShadow(activeProducts: Rec[]): Promise<
     const result: FreepassDataShadowObservation = {
       state: 'OBSERVED',
       activeCount: activeProducts.length,
+      legacyCount: activeProducts.length,
       canonicalCount: canonical.length,
       comparablePlateCount,
       matchedPlateCount,
