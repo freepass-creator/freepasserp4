@@ -64,11 +64,11 @@ must(/찾기 → 비교 → 상세 확인/.test(surfaceLock),
   'ERP4 MAIN의 사용자 흐름 잠금이 바뀌었다.');
 
 /* 1. 제품 정의 / 인증 완전 분리 */
-must(/상태:\s*\*\*CURRENT \/ ERP4 공개 메인 정본\*\*/.test(standard),
+must(/상태:\s*\*\*CURRENT \/ FreePassERP\.com v1 공개 정본\*\*/.test(standard),
   '정본 문서가 CURRENT 상태가 아니다.');
-must(/인증 시스템과 분리된 공개 상품 조회·검색 화면/.test(standard),
+must(/인증 시스템과 분리된 공개 White Label 상품 조회·검색 화면/.test(standard),
   'ERP4 MAIN 제품 정의에서 인증 분리 문구가 사라졌다.');
-must(/로그인·회원·세션은 ERP4 MAIN과 분리된 별도 업무 인증 기능/.test(standard),
+must(/로그인·회원·세션과 내부 업무 기능은 분리된 레거시\/별도 시스템/.test(standard),
   '정본의 한 문장 정의가 로그인 기능을 ERP4 MAIN과 다시 묶었다.');
 
 must(/pathname === '\/'\s*&&\s*homeIsShop\(host\)/.test(middleware),
@@ -200,7 +200,7 @@ for (const [file, src] of [
     `${file}에 /login 링크가 생겼다.`);
 }
 must(/LOCK-01[\s\S]*인증 분리/.test(lockDoc)
-  && /LOCK-02[\s\S]*ERP5/.test(lockDoc)
+  && /LOCK-02[\s\S]*FreePass Catalog/.test(lockDoc)
   && /LOCK-03[\s\S]*디자인/.test(lockDoc),
   'Stability Lock 문서의 핵심 잠금 항목이 사라졌다.');
 
