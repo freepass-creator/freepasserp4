@@ -1,5 +1,9 @@
 name: ERP5 SSOT 원천 최신화(매시간)
 
+# LEGACY_PRODUCTION_BRIDGE (2026-09-26)
+# 공식 owner는 freepass-creator/freepass-data. FreePass Data가 아직 NOT PRODUCTION-CUTOVER라 운영 연속성 때문에 임시 유지한다.
+# 신규 기능/분류/UI 규칙/adapter/engine 개발 금지. 장애복구·관측·이관/종료만 허용한다. cutover 완료 시 이 workflow를 제거한다.
+
 # 원천은 계속 바뀌고, 차량 원문 이력은 보존한다.
 # 검증된 기존 원자의 가변값과 상태만 자동 갱신하며 새 차번은 후보로 보고한다.
 # 한 회차가 읽은 ERP5 스냅샷 하나로 판매시트를 발행한다.
