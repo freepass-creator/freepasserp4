@@ -1,12 +1,19 @@
 import 'server-only';
 
-import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
+import { after } from 'next/server';
+import { readFreepassCatalog } from '@/lib/server/freepass-catalog';
 import { observeFreepassDataShadow } from '@/lib/server/freepass-data-shadow';
 import { sanitizeAgentForGuest, sanitizeProductForGuest, slimForList } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import { companyAlias } from '@/lib/domain/identity';
 import type { EntityRecord } from '@/lib/intake/entities';
+import {
+  addFreepassCatalogIssues,
+  diffFreepassCatalogIssues,
+  emptyFreepassCatalogIssueCounts,
+  type FreepassCatalogProduct,
+} from '@/lib/domain/freepass-catalog-contract';
 
 type Rec = Record<string, unknown>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -25,11 +32,11 @@ const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) 
  *     머리말) · 「대수가 두 군데서 세어져 어느 숫자도 못 믿게 된다」(CLAUDE.md).
  *   ⇒ **필터가 세는 모수와 목록이 세는 모수는 같은 함수에서 나와야 한다.**
  *
- * ★비싼 읽기는 아래 `readWhitelabelCatalogFromErp5` 가 60초 쥔다 — 그래서 껍데기가 이걸 또 불러도
+ * ★비싼 읽기는 아래 `readFreepassCatalog` 경계가 60초 캐시를 재사용한다 — 그래서 껍데기가 이걸 또 불러도
  *   Firestore 를 두 번 읽지 않는다(그 머리말 참고).
  */
 export async function loadGuestListing(options: { providerCode?: string; share?: string } = {}): Promise<{
-  products: EntityRecord[];
+  products: FreepassCatalogProduct[];
   /** 화이트라벨 — 공급사를 지정했을 때만 그 회사 이름. */
   brand: string;
   agent: ReturnType<typeof sanitizeAgentForGuest> | null;
@@ -46,10 +53,16 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
    * ★Firestore 장애는 오래된 RTDB 자료로 숨기지 않는다 — 부르는 쪽이 503 으로 드러낸다.
    *   그래야 웹과 모바일이 서로 다른 원장을 보고 다른 재고를 표시하는 일이 없다.
    */
-  const src = await readWhitelabelCatalogFromErp5({ includePartners: !!providerCode, includeUsers: !!share });
+  const src = await readFreepassCatalog({ includePartners: !!providerCode, includeUsers: !!share });
   const policies = Object.entries(src.policies).map(([policyKey, value]) => ({ ...(value || {}), _key: policyKey } as Rec));
 
-  const products: EntityRecord[] = [];
+  const products: FreepassCatalogProduct[] = [];
+  const contractDiagnostics = {
+    inputIssues: emptyFreepassCatalogIssueCounts(),
+    publishedIssues: emptyFreepassCatalogIssueCounts(),
+    maskedByAdapter: emptyFreepassCatalogIssueCounts(),
+    introducedByAdapter: emptyFreepassCatalogIssueCounts(),
+  };
   for (const [docKey, p] of Object.entries(src.products)) {
     const key = S(p?._key) || S(p?.product_code) || docKey;
     if (!p || typeof p !== 'object' || dead(p)) continue;
@@ -63,16 +76,45 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
      *   응답이 gzip 300KB → 126KB 로 준다(2026-09-17 운영 746대 실측).
      *   자르는 자리가 여기인 이유: 정제기(`sanitizeProductForGuest`)는 상세도 같이 쓴다.
      */
-    products.push(slimForList(sanitizeProductForGuest(key, p, policy)));
+    const published = slimForList(sanitizeProductForGuest(key, p, policy));
+    products.push(published);
+
+    /*
+     * Contract diagnosis stays observational. It never rewrites the source row or blocks a customer response.
+     * - inputIssues: source/consumer-contract problem to send back to FreePass Data
+     * - maskedByAdapter: source anomaly currently hidden by compatibility normalization
+     * - introducedByAdapter: regression created inside FreePassERP.com and therefore our bug
+     * - publishedIssues: anomaly still visible at the public boundary
+     */
+    const diff = diffFreepassCatalogIssues(merged, published);
+    addFreepassCatalogIssues(contractDiagnostics.inputIssues, diff.inputIssues);
+    addFreepassCatalogIssues(contractDiagnostics.publishedIssues, diff.publishedIssues);
+    addFreepassCatalogIssues(contractDiagnostics.maskedByAdapter, diff.maskedByAdapter);
+    addFreepassCatalogIssues(contractDiagnostics.introducedByAdapter, diff.introducedByAdapter);
   }
 
   /*
    * FreePass Data는 아직 손님에게 값을 공급하지 않는다.
    * 전체 카탈로그 요청에서만 Catalog V1 erp-public projection을 shadow로 읽어 수량/차번 parity를 관측한다.
    * shadow 오류나 불일치는 현재 ERP5 손님 응답에 영향을 주지 않는다.
+   * 관측 자체도 손님 응답을 늦추면 안 되므로 Next.js after()로 응답 완료 뒤 실행한다.
    */
   if (!providerCode && !share) {
-    await observeFreepassDataShadow(products);
+    after(async () => {
+      const hasAny = (counts: typeof contractDiagnostics.inputIssues) => Object.values(counts).some((count) => count > 0);
+      if (
+        hasAny(contractDiagnostics.inputIssues)
+        || hasAny(contractDiagnostics.publishedIssues)
+        || hasAny(contractDiagnostics.maskedByAdapter)
+        || hasAny(contractDiagnostics.introducedByAdapter)
+      ) {
+        console.warn('[freepass-catalog-contract]', JSON.stringify({
+          count: products.length,
+          ...contractDiagnostics,
+        }));
+      }
+      await observeFreepassDataShadow(products);
+    });
   }
 
   /*

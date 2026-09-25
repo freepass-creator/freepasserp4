@@ -11,6 +11,8 @@
  * 3) 이 검사 갱신
  */
 import { readFileSync } from 'node:fs';
+import { hasDeferredShadowBoundary } from './lib/freepass-shadow-boundary.mjs';
+import './sim-freepass-shadow-boundary.mjs';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 const failures: string[] = [];
@@ -27,6 +29,7 @@ const shopUi = read('components/shop/shop-ui.tsx');
 const shopCard = read('components/shop/ShopCard.tsx');
 const shopDetail = read('components/shop/ShopDetail.tsx');
 const guestListing = read('lib/server/guest-listing.ts');
+const catalogBoundary = read('lib/server/freepass-catalog.ts');
 const query = read('lib/shop/query.ts');
 const pkg = read('package.json');
 const standard = read('docs/ERP4-MAIN-UI-STANDARD.md');
@@ -89,12 +92,18 @@ if (guestAt >= 0 && elseAt > guestAt) {
 }
 
 /* 2. 데이터 원장 / 공개 목록 경계 */
-must(/readWhitelabelCatalogFromErp5/.test(guestListing),
-  '공개 상품 목록이 ERP5 canonical catalog를 읽지 않는다.');
+// User-approved consumer boundary: pin the current reader behind the facade, not inside UI.
+must(/const src = await readFreepassCatalog\(/.test(guestListing)
+  && /from ['"]@\/lib\/server\/freepass-catalog['"]/.test(guestListing)
+  && /return readWhitelabelCatalogFromErp5\(options\)/.test(catalogBoundary),
+  '공개 상품 목록의 FreePass consumer 경계 또는 현재 ERP5 reader 연결이 사라졌다.');
 must(/slimForList\(sanitizeProductForGuest/.test(guestListing),
   '공개 목록이 guest sanitize + list slim 경계를 거치지 않는다.');
 must(!/getStore\s*\(/.test(guestListing) && !/Realtime Database|RTDB.*fallback/i.test(guestListing.replace(/\/\*[\s\S]*?\*\//g, '')),
   '공개 목록 코드에 레거시 store/RTDB fallback이 다시 들어왔다.');
+// Check real call nodes: an await inside after(async () => ...) is not on the request path.
+must(hasDeferredShadowBoundary(guestListing),
+  'FreePass Data shadow 관측이 손님 응답 critical path를 다시 막고 있다.');
 
 /* 3. UI 토큰 — 숫자를 화면 파일에서 새로 만들지 않고 SHOP 정본을 쓴다 */
 must(/top:\s*\{\s*title:\s*18,\s*cobrand:\s*12\s*\}/.test(shopUi),
@@ -169,7 +178,7 @@ if (failures.length) {
 
 console.log('✓ LOCK-00 운영 사용면 / 비사용면');
 console.log('✓ LOCK-01 제품/인증 경계');
-console.log('✓ LOCK-02 ERP5 공개 데이터 경계');
+console.log('✓ LOCK-02 ERP5 공개 데이터 경계 + FreePass Data shadow 비간섭');
 console.log('✓ LOCK-03 목록·상세 디자인 토큰');
 console.log('✓ LOCK-04 URL 검색/필터/정렬 + 동일 가격행 계약');
 console.log('✓ LOCK-05 첫 화면 성능·로그인 진입점');

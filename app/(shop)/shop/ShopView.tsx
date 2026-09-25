@@ -1,7 +1,7 @@
 'use client';
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Settings2, SlidersHorizontal } from 'lucide-react';
-import type { EntityRecord } from '@/lib/intake/entities';
+import { FREEPASS_CATALOG_CONTRACT_VERSION, type FreepassCatalogProduct } from '@/lib/domain/freepass-catalog-contract';
 import { C, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { ShopQuickEditor } from '@/components/shop/ShopQuickEditor';
@@ -77,7 +77,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
    * 서버가 미리 낸 **필터 집계와 건수** — 목록이 오기 전 첫 그림에만 쓴다(아래 `facets` 머리말).
    * ⚠ 곁다리다. `null` 이면 예전처럼 브라우저가 받아 그린다 — 없어서 화면이 멈추면 안 된다.
    */
-  initial?: { facets: ShopFacets; total: number; list: EntityRecord[] } | null;
+  initial?: { facets: ShopFacets; total: number; list: FreepassCatalogProduct[] } | null;
 }) {
   /*
    * ★★**빠른필터·조건칸 축은 «채널»이 정한다**(사장님 2026-09-08 「그 회사별로 필터값이나
@@ -107,7 +107,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
   const mobile = useIsMobile(SHOP_MOBILE_BP);
   /* ★재고 갱신 시각 — 건수 줄 오른쪽에 선다(`ShopUpdatedStamp`). 곁다리라 없으면 안 그린다. */
   const head = useShopHeadStatus();
-  const [rows, setRows] = useState<EntityRecord[] | null>(null);
+  const [rows, setRows] = useState<FreepassCatalogProduct[] | null>(null);
   const [feedError, setFeedError] = useState(false);
   const [agent, setAgent] = useState<{ name?: string; phone?: string } | null>(null);
   const [attr, setAttr] = useState('');
@@ -176,10 +176,18 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
       if (wl.key) p.set('wl', wl.key);
       const res = await fetch(`/api/catalog/feed?${p}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as {
-        products?: EntityRecord[]; agent?: { name?: string; phone?: string } | null;
+        contractVersion?: string;
+        products?: FreepassCatalogProduct[];
+        agent?: { name?: string; phone?: string } | null;
       };
       if (!alive || requestId !== feedRequestRef.current) return;
-      if (res.ok && body.products) {
+      if (res.ok && Array.isArray(body.products)) {
+        if (body.contractVersion !== FREEPASS_CATALOG_CONTRACT_VERSION) {
+          console.warn('[shop/catalog-contract] version mismatch', {
+            expected: FREEPASS_CATALOG_CONTRACT_VERSION,
+            received: body.contractVersion || '',
+          });
+        }
         hasFeedRowsRef.current = true;
         setFeedError(false);
         setRows(body.products);
@@ -430,7 +438,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
    *   그려져 있어야 갈 자리가 있다(위 `spot`). 그래서 매물이 도착한 뒤의 «조건 바꾸기»에만 건다.
    */
   const firstPaint = mobile ? 6 : 12;
-  const [paint, setPaint] = useState<{ list: EntityRecord[]; n: number; ready: boolean } | null>(null);
+  const [paint, setPaint] = useState<{ list: FreepassCatalogProduct[]; n: number; ready: boolean } | null>(null);
   if (paint === null || paint.list !== list) {
     setPaint({ list, n: paint?.ready ? firstPaint : Infinity, ready: rows !== null });
   }
@@ -477,7 +485,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
    * ★옛 주소(`/q/{상품코드}?a=`)도 그대로 열린다 — 서버가 통째로 먼저 찾는다. 이미 나간 링크는 안 죽는다.
    */
   const wlQuery = wlKey ? `?wl=${encodeURIComponent(wlKey)}` : '';
-  const href = (p: EntityRecord) => `${guestShareUrl(p, attr, '')}${wlQuery}`;
+  const href = (p: FreepassCatalogProduct) => `${guestShareUrl(p, attr, '')}${wlQuery}`;
 
   /**
    * 폰 조건 시트의 «초안 미리보기» — 고른 조건으로 축 목록과 남는 대수를 같이 센다.

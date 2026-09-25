@@ -17,6 +17,7 @@
  *   차대번호(`vin`)는 손님에게 보여도 되는 값이다(사장님 확인) — 실차를 특정하는 정보다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
+import type { FreepassCatalogProduct } from '@/lib/domain/freepass-catalog-contract';
 import { kmValue } from '@/lib/format';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { scrapableSources } from '@/lib/domain/product-photos';
@@ -178,7 +179,7 @@ export function publicPolicy(policy: Rec | null | undefined): Rec | null {
 }
 
 /** 매물 하나를 손님용으로 정제한다. 목록에 없는 필드는 «그냥 빠진다» — 기본값을 지어내지 않는다. */
-export function sanitizeProductForGuest(key: string, p: Rec, policy?: Rec | null): EntityRecord {
+export function sanitizeProductForGuest(key: string, p: Rec, policy?: Rec | null): FreepassCatalogProduct {
   const out: Rec = { _key: key, product_code: S(p.product_code) || key };
   for (const f of PUBLIC_PRODUCT_FIELDS) {
     const v = p[f];
@@ -215,7 +216,7 @@ export function sanitizeProductForGuest(key: string, p: Rec, policy?: Rec | null
   if (S(p.photo_link)) out.photo_link = S(p.photo_link);
   const pol = publicPolicy(policy);
   if (pol) out._policy = pol;
-  return out as EntityRecord;
+  return out as FreepassCatalogProduct;
 }
 
 /** 담당 영업자 — 손님이 연락할 수 있을 만큼만. 이메일·uid·채널코드는 내보내지 않는다. */
@@ -246,8 +247,8 @@ export function sanitizeAgentForGuest(u: Rec | null | undefined): Rec | null {
  * ⚠ 되돌리려면 이 함수를 안 부르면 된다. 다만 그때는 폰에서 첫 화면이 그만큼 늦어진다 —
  *   `npm run check:speed` 가 이 규칙을 지킨다.
  */
-export function slimForList(p: EntityRecord): EntityRecord {
+export function slimForList(p: FreepassCatalogProduct): FreepassCatalogProduct {
   if (!p || !('image_urls' in p)) return p;
   const { image_urls: _drop, ...rest } = p as Rec;
-  return rest as EntityRecord;
+  return rest as FreepassCatalogProduct;
 }

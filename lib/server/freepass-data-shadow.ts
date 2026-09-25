@@ -26,6 +26,8 @@ type FreepassDataResponse = {
 
 export type FreepassDataShadowObservation = {
   state: 'DISABLED' | 'SKIPPED' | 'OBSERVED' | 'ERROR';
+  activeCount: number;
+  /** @deprecated telemetry compatibility alias; use activeCount in new consumers. */
   legacyCount: number;
   canonicalCount: number | null;
   comparablePlateCount: number;
@@ -49,7 +51,7 @@ const timeoutMs = () => {
   return Number.isFinite(value) && value >= 100 && value <= 5000 ? Math.trunc(value) : 1200;
 };
 
-function legacyPlates(products: Rec[]) {
+function activePlates(products: Rec[]) {
   return new Set(products.map((product) => plate(product.car_number || product.plateNumber)).filter(Boolean));
 }
 
@@ -57,10 +59,11 @@ function canonicalPlates(products: FreepassDataProduct[]) {
   return new Set(products.map((product) => plate(product.vehicle?.plateNumber)).filter(Boolean));
 }
 
-function empty(state: FreepassDataShadowObservation['state'], legacyCount: number, error?: string): FreepassDataShadowObservation {
+function empty(state: FreepassDataShadowObservation['state'], activeCount: number, error?: string): FreepassDataShadowObservation {
   return {
     state,
-    legacyCount,
+    activeCount,
+    legacyCount: activeCount,
     canonicalCount: null,
     comparablePlateCount: 0,
     matchedPlateCount: 0,
@@ -81,12 +84,12 @@ function empty(state: FreepassDataShadowObservation['state'], legacyCount: numbe
  * This never supplies customer-visible data and never falls back from one authority to another.
  * ERP5 remains the active public reader until explicit PARITY_VERIFIED evidence exists.
  */
-export async function observeFreepassDataShadow(legacyProducts: Rec[]): Promise<FreepassDataShadowObservation> {
-  if (!enabled()) return empty('DISABLED', legacyProducts.length);
+export async function observeFreepassDataShadow(activeProducts: Rec[]): Promise<FreepassDataShadowObservation> {
+  if (!enabled()) return empty('DISABLED', activeProducts.length);
 
   const base = baseUrl();
   if (!base) {
-    const result = empty('SKIPPED', legacyProducts.length, 'FREEPASS_DATA_BASE_URL 미설정');
+    const result = empty('SKIPPED', activeProducts.length, 'FREEPASS_DATA_BASE_URL 미설정');
     console.warn('[freepass-data-shadow]', JSON.stringify(result));
     return result;
   }
@@ -104,19 +107,20 @@ export async function observeFreepassDataShadow(legacyProducts: Rec[]): Promise<
 
     const body = await response.json() as FreepassDataResponse;
     const canonical = Array.isArray(body.data) ? body.data : [];
-    const legacyPlateSet = legacyPlates(legacyProducts);
+    const activePlateSet = activePlates(activeProducts);
     const canonicalPlateSet = canonicalPlates(canonical);
 
     let matchedPlateCount = 0;
-    for (const key of legacyPlateSet) if (canonicalPlateSet.has(key)) matchedPlateCount += 1;
+    for (const key of activePlateSet) if (canonicalPlateSet.has(key)) matchedPlateCount += 1;
 
-    const comparablePlateCount = Math.max(legacyPlateSet.size, canonicalPlateSet.size);
-    const missingInCanonical = [...legacyPlateSet].filter((key) => !canonicalPlateSet.has(key)).length;
-    const extraInCanonical = [...canonicalPlateSet].filter((key) => !legacyPlateSet.has(key)).length;
+    const comparablePlateCount = Math.max(activePlateSet.size, canonicalPlateSet.size);
+    const missingInCanonical = [...activePlateSet].filter((key) => !canonicalPlateSet.has(key)).length;
+    const extraInCanonical = [...canonicalPlateSet].filter((key) => !activePlateSet.has(key)).length;
 
     const result: FreepassDataShadowObservation = {
       state: 'OBSERVED',
-      legacyCount: legacyProducts.length,
+      activeCount: activeProducts.length,
+      legacyCount: activeProducts.length,
       canonicalCount: canonical.length,
       comparablePlateCount,
       matchedPlateCount,
@@ -132,7 +136,7 @@ export async function observeFreepassDataShadow(legacyProducts: Rec[]): Promise<
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const result = empty('ERROR', legacyProducts.length, message);
+    const result = empty('ERROR', activeProducts.length, message);
     console.warn('[freepass-data-shadow]', JSON.stringify(result));
     return result;
   } finally {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { loadGuestListing } from '@/lib/server/guest-listing';
 import { guestProviderFence, resolveGuestWhitelabel } from '@/lib/whitelabel';
+import { FREEPASS_CATALOG_CONTRACT_VERSION } from '@/lib/domain/freepass-catalog-contract';
 
 export const dynamic = 'force-dynamic';
 const S = (v: unknown) => String(v ?? '').trim();
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
     const { products, brand, agent } = await loadGuestListing({ providerCode, share });
 
     return NextResponse.json(
-      { count: products.length, products, brand, agent },
+      { contractVersion: FREEPASS_CATALOG_CONTRACT_VERSION, count: products.length, products, brand, agent },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {

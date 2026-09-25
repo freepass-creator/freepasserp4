@@ -5,7 +5,7 @@ import { coBrandName, guestProviderFence, hasBrand, resolveGuestWhitelabel, ogIm
 import { readShopQuick } from '@/lib/server/shop-quick-store';
 import { loadGuestListing } from '@/lib/server/guest-listing';
 import { readQuery, runShopQuery, type ShopFacets } from '@/lib/shop/query';
-import type { EntityRecord } from '@/lib/intake/entities';
+import type { FreepassCatalogProduct } from '@/lib/domain/freepass-catalog-contract';
 
 /** 첫 화면을 덮는 카드 수 — 웹 3열×2줄. 이만큼만 서버가 그린다(아래 머리말). */
 const FIRST_SCREEN = 6;
@@ -90,7 +90,7 @@ export default async function ShopPage({ searchParams }: Params) {
    * ⚠ 실패하면 조용히 넘어간다 — 집계는 «먼저 보여 주려고» 있는 곁다리다. 없으면 예전처럼
    *   브라우저가 받아 그린다. 곁다리가 첫 화면을 막으면 안 된다.
    */
-  let initial: { facets: ShopFacets; total: number; list: EntityRecord[] } | null = null;
+  let initial: { facets: ShopFacets; total: number; list: FreepassCatalogProduct[] } | null = null;
   try {
     const { products } = await loadGuestListing({ providerCode: guestProviderFence(wl, one(sp.p)) });
     const q = readQuery(new URLSearchParams(

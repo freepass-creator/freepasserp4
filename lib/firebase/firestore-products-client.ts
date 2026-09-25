@@ -25,14 +25,14 @@
  */
 import type { EntityRecord } from '@/lib/intake/entities';
 import { getFirebaseApp } from './client';
-import { isExcludedProduct, dedupeProductsByVehicle, canSeeProductCost, stripProductCost } from './rtdb-products';
+import { isExcludedProduct, dedupeProductsByVehicle, canSeeProductCost, stripProductCost } from './product-visibility';
 
 export function finderFromFirestoreEnabled(): boolean {
-  /** 기본 켬 — «0» 을 명시했을 때만 옛 RTDB 길로 돌아간다. */
+  /** Legacy compatibility flag. This module itself never falls back to RTDB. */
   return process.env.NEXT_PUBLIC_FINDER_FROM_FIRESTORE !== '0';
 }
 
-/** Firestore 원자 문서 → 파인더 행. RTDB 병렬 = `_key`는 product_code(없으면 차번). */
+/** Firestore 원자 문서 → 파인더 행. `_key`는 product_code(없으면 차번). */
 function toRow(d: Record<string, unknown>): EntityRecord {
   return {
     ...d,
@@ -54,8 +54,8 @@ const subs = new Set<(rows: EntityRecord[]) => void>();
 const errSubs = new Set<(err: unknown) => void>();
 
 /**
- * ㉡ 실패 시 «핸들을 완전히 해제»한다 — 안 놓으면 unsub 가 truthy 라 ensureSnapshot 이 재시도를 못 한다
- *   (파인더가 빈 채로 굳던 원인, CLAUDE.md 2026-09-04). 해제 후 에러 구독자에게 알려 ㉢ RTDB 폴백을 태운다.
+ * 실패 시 핸들을 완전히 해제한다. 안 놓으면 unsub가 truthy라 ensureSnapshot이 재시도를 못 한다.
+ * 해제 후 에러 구독자에게 전달하며 데이터 소스 fallback은 이 모듈의 책임이 아니다.
  */
 function releaseOnError(err: unknown) {
   if (unsub) { try { unsub(); } catch { /* */ } unsub = null; }
@@ -84,7 +84,7 @@ async function ensureSnapshot() {
 
 /**
  * 파인더 상품 구독. 콜백은 스냅샷마다 «가공 전 원자행」을 받는다(공급사명·원가 마스킹은 호출부에서).
- * onError = 구독/스냅샷 실패 알림(호출부가 핸들 해제 + RTDB 폴백에 쓴다). 마지막 구독자가 빠지면 onSnapshot 을 닫아 유휴 과금 제거.
+ * onError = 구독/스냅샷 실패 알림. 마지막 구독자가 빠지면 onSnapshot을 닫아 유휴 과금을 제거한다.
  */
 export function subscribeFirestoreProducts(onRows: (rows: EntityRecord[]) => void, onError?: (err: unknown) => void): () => void {
   subs.add(onRows);

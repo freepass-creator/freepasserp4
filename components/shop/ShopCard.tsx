@@ -2,7 +2,7 @@
 import { memo, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Check, CircleCheck, ImageOff, ShieldCheck, Tag } from 'lucide-react';
-import type { EntityRecord } from '@/lib/intake/entities';
+import type { FreepassCatalogProduct } from '@/lib/domain/freepass-catalog-contract';
 import { C, FW, NUM } from '@/components/ui';
 import { BADGE, PerkMarks, SHOP, SHOP_MOBILE_BP, markIconFor, type ShopMark, ShopPhoto, PHOTO_SIZES, vehicleStatusMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -55,7 +55,7 @@ import { queryTokens } from '@/lib/domain/search';
  *   ★색은 아이콘에만(무심사 초록 · 소득확인·신용조회는 흐림 · 나머지 채널색), 글자는 먹색.
  */
 export const ShopCard = memo(function ShopCard({ p, href, rank = 99, searchQuery = '', displayPrice }: {
-  p: EntityRecord;
+  p: FreepassCatalogProduct;
   href: string;
   /** 현재 목록을 만든 검색어. 카드에서 «왜 걸렸는지» 보이는 값만 조용히 강조한다. */
   searchQuery?: string;
@@ -430,7 +430,7 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99, searchQuery
  *   있는데도 불구하고 사진에 들어갈 필요는 없을 것 같고」). 사진 위 글자는 어떤 사진이 오느냐에
  *   따라 읽히기도 하고 안 읽히기도 한다 — 밑에 자리가 남는데 굳이 그럴 이유가 없다.
  */
-function ShopThumb({ p, marks = [], rank = 99 }: { p: EntityRecord; marks?: ShopMark[]; rank?: number }) {
+function ShopThumb({ p, marks = [], rank = 99 }: { p: FreepassCatalogProduct; marks?: ShopMark[]; rank?: number }) {
   /*
    * ★**첫 화면 카드는 관찰자를 안 기다린다**(위 `rank` 머리말).
    *   8 = 웹 3열이면 세 줄쯤, 폰이면 첫 화면 두 장 + 여유. 화면에 들어올 «가능성이 큰» 만큼만이다.
