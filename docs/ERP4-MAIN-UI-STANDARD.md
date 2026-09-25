@@ -1,25 +1,25 @@
-# ERP4 MAIN · Product Browse UI Standard
+# FreePassERP.com v1 · Product Browse UI Standard
 
-최종: 2026-09-21  
-상태: **CURRENT / ERP4 공개 메인 정본**
+최종: 2026-09-26  
+상태: **CURRENT / FreePassERP.com v1 공개 정본**
 
 ## 1. 제품 정의
 
-**freepasserp.com의 ERP4 메인은 인증 시스템과 분리된 공개 상품 조회·검색 화면이다.**
+**FreePassERP.com v1은 인증 시스템과 분리된 공개 White Label 상품 조회·검색 화면이다.**
 
 - `freepasserp.com/` → 주소를 유지한 채 상품 목록(`/shop`)을 보여준다.
 - 미들웨어가 없는 로컬·미리보기 fallback도 `/shop`으로 간다.
 - 공개 메인에는 로그인, 업무 화면 이동, 내부 구글시트, 관리자 도구의 진입 링크를 두지 않는다.
-- `/finder` 등 과거 ERP4 업무 화면은 기존 링크 호환·보관 목적의 **레거시 경로**일 뿐 메인 IA가 아니다. `freepasserp.com`·`www.freepasserp.com`에서 직접 열면 공개 상품 홈(`https://freepasserp.com/`)으로 정리한다.
-- **`freepasserp.com`의 `/login`은 ERP4 경로가 아니다.** 직접 접근은 공개 상품 홈으로 정리한다. 화이트라벨 상품 호스트의 로그인 경로는 별도 제품면으로 취급하며 이 대표 도메인 규칙으로 넘기지 않는다.
-- 공개 상품 요청에서는 **`AuthProvider`를 마운트하지 않는다.** Firebase Auth 부팅·세션 복원·로그인 게이트·자동 로그아웃이 ERP4 MAIN에서 실행되면 구조 위반이다.
+- `/finder` 등 과거 내부 ERP 업무 화면은 기존 링크 호환·보관 목적의 **레거시 경로**일 뿐 메인 IA가 아니다. `freepasserp.com`·`www.freepasserp.com`에서 직접 열면 공개 상품 홈(`https://freepasserp.com/`)으로 정리한다.
+- **`freepasserp.com`의 `/login`은 FreePassERP.com v1 경로가 아니다.** 직접 접근은 공개 상품 홈으로 정리한다. 화이트라벨 상품 호스트의 로그인 경로는 별도 제품면으로 취급하며 이 대표 도메인 규칙으로 넘기지 않는다.
+- 공개 상품 요청에서는 **`AuthProvider`를 마운트하지 않는다.** Firebase Auth 부팅·세션 복원·로그인 게이트·자동 로그아웃이 FreePassERP.com v1에서 실행되면 구조 위반이다.
 - 표준라벨에는 전화번호·담당자·소유 귀속·상담 하단독을 표시하지 않는다.
-- 로그인/회원/세션 구현 파일이 저장소에 남아 있어도 그것은 **별도·레거시 업무 인증 기능**이며 ERP4 MAIN의 IA·라우팅·제품 기능으로 취급하지 않는다.
+- 로그인/회원/세션 구현 파일이 저장소에 남아 있어도 그것은 **별도·레거시 업무 인증 기능**이며 FreePassERP.com v1의 IA·라우팅·제품 기능으로 취급하지 않는다.
 - 상품 상세 `/q/[code]`, 채널 주소, 공유 링크는 기존 호환성을 유지한다.
 
 ## 2. 화면의 역할
 
-ERP4 MAIN의 일은 세 가지뿐이다.
+FreePassERP.com v1의 일은 세 가지뿐이다.
 
 `찾기 → 비교 → 상세 확인`
 
@@ -32,17 +32,18 @@ freepass-admin의 최신 Product Experience Principles와 같은 철학을 쓰�
 - 콘텐츠 우선. 장식·대형 고정 chrome보다 상품·검색·필터가 먼저다.
 - 검색어·필터·정렬·목록 스크롤을 가능한 한 보존한다.
 - 같은 상품/조건 데이터와 쿼리 규칙을 웹·모바일이 공유한다.
+- 빠른조건 구성은 `lib/whitelabel.ts`의 채널 설정만 정본으로 사용한다. Firestore 등 runtime override를 두 번째 UI 설정원으로 두지 않는다.
 - 모바일은 PC 축소판이 아니라 한 화면 한 목적의 흐름으로 만든다.
 - 모바일 터치 대상은 최소 44px 수준을 유지한다.
 - 색은 의미가 있을 때만 사용하고, 배지·칩·그림자를 남발하지 않는다.
-- ERP4 MAIN 기본 팔레트는 **네이비 `#1B2A4A`(주색) + ERP BI 블루 `#5B9FD4`(보조 반응색)**다. 초록·빨강 등은 상태 의미색으로만 쓴다.
+- FreePassERP.com v1 기본 팔레트는 **네이비 `#1B2A4A`(주색) + ERP BI 블루 `#5B9FD4`(보조 반응색)**다. 초록·빨강 등은 상태 의미색으로만 쓴다.
 - 로딩·빈 결과·오류·갱신 상태를 실제 UI 상태로 다룬다.
 - 숫자·금액·차량명·상태의 위계를 화면 전체에서 일관되게 유지한다.
 - 목록 대여료는 `67만원 / 67.5만원`처럼 만원 단위 한 자리까지 간결하게 표시하고, 상세·계약·정산은 실제 원 단위 금액을 유지한다.
 - 검색 결과는 새 설명 배지를 추가하기보다 **이미 보이는 일치 값**을 옅게 강조해 결과 이유를 설명한다.
 - 반복적으로 스스로 움직이는 장식보다 hover/focus/press 같은 **사용자 행동에 대한 반응**을 우선한다.
 
-## 4. ERP4 MAIN 전용 치수
+## 4. FreePassERP.com v1 전용 치수
 
 공개 상품 탐색은 내부 ERP보다 손가락·시선 이동이 크므로 `SHOP` 토큰을 정본으로 유지한다.
 
@@ -64,7 +65,7 @@ freepass-admin의 최신 Product Experience Principles와 같은 철학을 쓰�
 
 ## 5. 현재 유지할 패턴
 
-다음은 이미 ERP4 MAIN 표준에 맞으므로 재설계하지 않는다.
+다음은 이미 FreePassERP.com v1 표준에 맞으므로 재설계하지 않는다.
 
 - 웹: 검색 + 좌측 필터 + **1→2→3→4열 반응형 상품 목록**
 - 모바일: 상단 검색/조건 진입 + 가로 빠른조건 + 1열 카드
@@ -89,9 +90,9 @@ freepass-admin의 최신 Product Experience Principles와 같은 철학을 쓰�
 
 ## 7. 금지
 
-- ERP4 루트에서 `/login`으로 보내기
-- ERP4 MAIN에서 `/login` UI를 노출하거나, 공개 상품·공유·전자계약 URL까지 대표 홈으로 보내기
-- ERP4 MAIN 공개 상품면에서 `AuthProvider`·Firebase Auth 세션 부팅을 실행하기
+- FreePassERP.com 루트에서 `/login`으로 보내기
+- FreePassERP.com v1에서 `/login` UI를 노출하거나, 공개 상품·공유·전자계약 URL까지 대표 홈으로 보내기
+- FreePassERP.com v1 공개 상품면에서 `AuthProvider`·Firebase Auth 세션 부팅을 실행하기
 - 공개 푸터/헤더에 로그인·업무화면·내부 시트 링크 추가
 - 웹/모바일 상호 영향 확인 없이 한쪽만 임의 수정
 - 페이지 한 곳에서 새 높이·색·radius를 임의로 만들기
@@ -101,4 +102,4 @@ freepass-admin의 최신 Product Experience Principles와 같은 철학을 쓰�
 
 ## 한 문장
 
-> **ERP4는 freepasserp.com에서 바로 상품을 찾고 보는 공개 Product Browse이며, 로그인·회원·세션은 ERP4 MAIN과 분리된 별도 업무 인증 기능이다.**
+> **FreePassERP.com v1은 White Label 상품을 바로 찾고 비교하고 상세 확인하는 공개 Product Browse이며, 로그인·회원·세션과 내부 업무 기능은 분리된 레거시/별도 시스템이다.**
