@@ -181,7 +181,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
         agent?: { name?: string; phone?: string } | null;
       };
       if (!alive || requestId !== feedRequestRef.current) return;
-      if (res.ok && body.products) {
+      if (res.ok && Array.isArray(body.products)) {
         if (body.contractVersion !== FREEPASS_CATALOG_CONTRACT_VERSION) {
           console.warn('[shop/catalog-contract] version mismatch', {
             expected: FREEPASS_CATALOG_CONTRACT_VERSION,
