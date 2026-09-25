@@ -1,5 +1,3 @@
-import type { EntityRecord } from '@/lib/intake/entities';
-
 /**
  * FreePassERP.com public catalog contract.
  *
@@ -8,7 +6,60 @@ import type { EntityRecord } from '@/lib/intake/entities';
  */
 export const FREEPASS_CATALOG_CONTRACT_VERSION = '1.0' as const;
 
-export type FreepassCatalogProduct = EntityRecord;
+export type FreepassCatalogRate = {
+  rent: number;
+  deposit: number;
+};
+
+export type FreepassCatalogPolicy = Record<string, unknown>;
+
+/**
+ * Public product shape only. Do not add internal cost, settlement, source, auth, partner-code,
+ * or pipeline fields here. New customer-visible fields must be added deliberately together
+ * with the public adapter.
+ */
+export type FreepassCatalogProduct = {
+  _key: string;
+  product_code: string;
+  car_number?: unknown;
+  vin?: unknown;
+  maker?: unknown;
+  model?: unknown;
+  sub_model?: unknown;
+  trim_name?: unknown;
+  trim_extra?: unknown;
+  variant?: unknown;
+  vehicle_class?: unknown;
+  year?: unknown;
+  first_registration_date?: unknown;
+  fuel_type?: unknown;
+  engine_type?: unknown;
+  ext_color?: unknown;
+  int_color?: unknown;
+  drive_type?: unknown;
+  seats?: unknown;
+  transmission?: unknown;
+  usage?: unknown;
+  battery_capacity?: unknown;
+  options?: unknown;
+  product_type?: unknown;
+  vehicle_status?: unknown;
+  accident_history?: unknown;
+  cert_car_name?: unknown;
+  location?: unknown;
+  note?: unknown;
+  insurance_included?: unknown;
+  annual_mileage?: unknown;
+  deposit_note?: unknown;
+  provider_name?: unknown;
+  mileage?: unknown;
+  engine_cc?: unknown;
+  price: Record<string, FreepassCatalogRate>;
+  image_urls?: string[];
+  image_url?: string;
+  photo_link?: string;
+  _policy?: FreepassCatalogPolicy;
+};
 
 export type FreepassCatalogContractIssue =
   | 'missing-product-id'
