@@ -41,9 +41,12 @@ const stable = (value: unknown): unknown => {
   return value;
 };
 
+export const hashFreePassDataSheetPayload = (value: unknown) =>
+  createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
+
 export const hashFreePassDataSheetHandoff = (
   value: Omit<FreePassDataSheetHandoff, 'handoffHash'>
-) => createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
+) => hashFreePassDataSheetPayload(value);
 
 const expectedConsumer = (workbook: FreePassSheetWorkbook): FreePassSheetConsumerId =>
   workbook === 'F01' ? 'google-sheets-f01' : 'google-sheets-f86';
@@ -102,12 +105,12 @@ export function materializeFreePassDataSalesSnapshot(
   if (JSON.stringify(actualInventory) !== JSON.stringify(handoff.snapshot.inventory)) {
     throw new Error('HOLD: FreePass Data sheet handoff inventory mismatch');
   }
-  const actualDataDigest = hashFreePassDataSheetHandoff({
+  const actualDataDigest = hashFreePassDataSheetPayload({
     products: handoff.snapshot.products,
     policies: handoff.snapshot.policies,
     partners: handoff.snapshot.partners,
     inventory: handoff.snapshot.inventory
-  } as any);
+  });
   if (actualDataDigest !== handoff.approvedRelease.dataDigest) {
     throw new Error('HOLD: FreePass Data sheet snapshot data digest mismatch');
   }
