@@ -1,11 +1,9 @@
 'use client';
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Settings2, SlidersHorizontal } from 'lucide-react';
+import { Search, SlidersHorizontal } from 'lucide-react';
 import { FREEPASS_CATALOG_CONTRACT_VERSION, type FreepassCatalogProduct } from '@/lib/domain/freepass-catalog-contract';
 import { C, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { ShopQuickEditor } from '@/components/shop/ShopQuickEditor';
-import { toast } from '@/components/Toaster';
 import { updatedLabelKo, useShopHeadStatus } from '@/lib/shop/head-status';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FREEPASS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
@@ -21,7 +19,7 @@ import { resolveAttr } from '@/lib/shop/attribution';
 import {
   AXIS_LABEL, DEFAULT_QUICK, SHOP_SORTS, activeTokens, clearAxis, emptyQuery, priceForShopSelection, queryCount,
   readQuery, runShopQuery, soloLabel, toggleAxis, writeQuery,
-  type ShopAxis, type ShopFacets, type ShopQuery, type ShopQuickChip, type ShopResult,
+  type ShopAxis, type ShopFacets, type ShopQuery, type ShopResult,
   type ShopSort as ShopSortKey,
 } from '@/lib/shop/query';
 
@@ -86,22 +84,8 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
    * ★자리는 채널 표 한 곳이다(`lib/whitelabel.ts`) — 「줄 하나 = 채널 하나」 규칙 그대로,
    *   필터도 그 줄 안에서 끝난다. 화면 코드는 채널이 늘어도 안 갈린다.
    */
-  /*
-   * ★★**빠른조건은 «고쳐질 수 있다»**(사장님 2026-09-10 「퀵필터를 수정할 수 있게 해주면
-   *   좋겠어」). 서버가 실어 준 것(`wl.quick`)으로 시작하고, 담당자가 저장하면 그 자리에서 바뀐다 —
-   *   새로고침을 시키지 않는다(고친 결과를 «지금» 봐야 다음 한 칸을 고를 수 있다).
-   */
-  const [quickEdit, setQuickEdit] = useState<ShopQuickChip[] | null>(null);
-  const [quickSaving, setQuickSaving] = useState(false);
-  const quickAll = quickEdit ?? wl.quick ?? DEFAULT_QUICK;
-  /*
-   * ★★★**고치는 단추는 «누구에게나» 보인다 — 손님에게도.**
-   *   사장님 2026-09-10 「그냥 **누구나 할 수 있게 오픈**할 거야. 어차피 **우리 거 팔아주는
-   *   입장**이니까 **누구라도 할 수 있게**」 · 「**손님도 할 수 있게 다~ 모든 사람이**」.
-   *   ⇒ 로그인도, 역할도, 채널 소속도 안 본다. 그래서 여기 «판정»이 없다.
-   * ⚠ 처음엔 영업자·관리자만 → 로그인한 사람 전부 → 전부로 두 번 물렸다. 되돌리려면 먼저 여쭙는다.
-   * ⚠ 문(`/api/shop/quick`)도 같이 열려 있다 — 화면만 열고 문을 잠그면 「눌러도 안 된다」가 된다.
-   */
+  /* 빠른조건은 `lib/whitelabel.ts`의 채널 정본만 사용한다. */
+  const quickAll = wl.quick ?? DEFAULT_QUICK;
   /* 이 줄에 «단추가 있는» 조건 — 뒤에 토큰으로 또 세우지 않는다(아래 칩 줄 머리말). */
   const quickKeys = useMemo(() => new Set(quickAll.map((k) => `${k.axis}:${k.key}`)), [quickAll]);
   const mobile = useIsMobile(SHOP_MOBILE_BP);
@@ -310,36 +294,6 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
   /* 조건이 바뀌면 첫 장으로 — 3장까지 펼쳐 본 뒤 조건을 좁혔는데 여전히 3장이면 뭐가 준 건지 모른다. */
   useEffect(() => { setLimit(PAGE); }, [query]);
 
-  /**
-   * 고친 칩을 문에 적는다. **답으로 온 것을 그대로 화면에 쓴다** — 내가 보낸 것을 쓰면
-   * 문이 걸러 낸 것(모르는 축 등)이 화면에만 남아 새로고침 때 사라진다.
-   */
-  const saveQuick = useCallback(async (next: ShopQuickChip[]) => {
-    setQuickSaving(true);
-    try {
-      /*
-       * ⚠ 여기서 로그인 토큰을 실어 「누가 고쳤나」를 남겼었다 — **걷었다**(사장님 2026-09-17
-       *   「화이트라벨에서 erp4 아예 분리해서 **로그인 기능 아예 없는 거야**」).
-       * ★막는 값이 아니었다 — 빠른조건은 원래 «누구나» 고친다(2026-09-10 확정). 토큰은 기록용이었고,
-       *   손님 동에 로그인이 없어졌으니 실을 것이 없다. 문은 그대로 열려 있고 기록은 `guest` 로 남는다.
-       */
-      const res = await fetch('/api/shop/quick', {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ wl: wl.key, quick: next }),
-      });
-      const body = await res.json().catch(() => ({}));
-      /* 실패는 «집 알림»으로 말한다 — `window.alert` 은 화면을 멈춰 세우고, 이 동의 얼굴도 아니다. */
-      if (!res.ok) { toast(String(body?.error || '저장하지 못했습니다'), 'error'); return; }
-      setQuickEdit(Array.isArray(body?.quick) ? (body.quick as ShopQuickChip[]) : next);
-      /* ★알림은 «단추가 한 말»과 맞춘다 — 단추가 「저장」인데 알림이 「고쳤습니다」면 두 말이 된다. */
-      toast('빠른조건을 저장했습니다', 'ok');
-    } catch {
-      toast('저장하지 못했습니다. 잠시 뒤 다시 해 주세요.', 'error');
-    } finally {
-      setQuickSaving(false);
-    }
-  }, [wl.key]);
 
   /*
    * ★★**누른 칩은 «바로» 켜지고, 목록은 «뒤따라» 바뀐다**(사장님 2026-09-11 「좀 빠릿빠릿하게」).
@@ -503,25 +457,8 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
     return { facets: r.facets, count: r.list.length };
   }, [rows, query, liveQuery, facets, list]);
 
-  /*
-   * ★★**빠른조건 고치는 칸 = 웹 조건칸 «맨 아래 구역»**(사장님 2026-09-11 「설정페이지 맨 하단 섹션 하나
-   *   주고 거기서 펼쳐서 넣게」).
-   * ⚠⚠ **폰 상세 조건 시트에는 안 넣는다**(사장님 2026-09-11 「**모바일 필터는 기존 게 맞는 거야**」).
-   *   시트 지도 끝에 한 줄로 얹었다가 물렸다.
-   * ★`key` = 저장된 줄 — 저장이 끝나 줄이 바뀌면 칸이 새 줄로 다시 선다(고르던 초안이 옛 줄에 남지 않게).
-   */
-  const quickTail = {
-    label: '빠른조건 설정',
-    icon: Settings2,
-    body: (
-      <ShopQuickEditor key={quickAll.map((k) => `${k.axis}:${k.key}`).join('|')}
-        facets={facets} value={quickAll} saving={quickSaving} onSave={saveQuick} />
-    ),
-  };
-
   const filters = (
-    <ShopFilters facets={facets} sel={query.sel} onToggle={onToggle} onClearAxis={onClearAxis} axes={wl.axes}
-      tail={quickTail} />
+    <ShopFilters facets={facets} sel={query.sel} onToggle={onToggle} onClearAxis={onClearAxis} axes={wl.axes} />
   );
 
   return (
