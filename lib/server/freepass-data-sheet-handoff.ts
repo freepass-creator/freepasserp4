@@ -38,7 +38,9 @@ export type FreePassDataSheetHandoff = {
     products: Record<string, unknown>[];
     policies: Record<string, unknown>[];
     partners: Record<string, unknown>[];
-    inventory: SalesPublishSnapshot['inventory'];
+    inventory: SalesPublishSnapshot['inventory'] & {
+      depositRuleViolations: number;
+    };
   };
   handoffHash: string;
 };
@@ -136,8 +138,22 @@ export function materializeFreePassDataSalesSnapshot(
     throw new Error('HOLD: FreePass Data sheet manifest evidence mismatch');
   }
 
+  const {
+    depositRuleViolations,
+    ...legacyInventory
+  } = handoff.snapshot.inventory;
+  if (!Number.isInteger(depositRuleViolations) || depositRuleViolations < 0) {
+    throw new Error('HOLD: invalid FreePass Data deposit rule counter');
+  }
+  if (depositRuleViolations !== 0) {
+    throw new Error('HOLD: FreePass Data deposit rule violation');
+  }
+
   const actualInventory = inventoryCountSnapshot(handoff.snapshot.products);
-  if (JSON.stringify(actualInventory) !== JSON.stringify(handoff.snapshot.inventory)) {
+  if (
+    hashFreePassDataSheetPayload(actualInventory) !==
+    hashFreePassDataSheetPayload(legacyInventory)
+  ) {
     throw new Error('HOLD: FreePass Data sheet handoff inventory mismatch');
   }
   const actualDataDigest = hashFreePassDataSheetPayload({
@@ -160,7 +176,7 @@ export function materializeFreePassDataSalesSnapshot(
     products: structuredClone(handoff.snapshot.products),
     policies: structuredClone(handoff.snapshot.policies),
     partners: structuredClone(handoff.snapshot.partners),
-    inventory: structuredClone(handoff.snapshot.inventory)
+    inventory: structuredClone(legacyInventory)
   };
 
   return {
