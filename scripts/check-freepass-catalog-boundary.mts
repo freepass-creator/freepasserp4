@@ -21,6 +21,12 @@ for (const file of PUBLIC_SURFACE_FILES) {
   }
 }
 
+const shop = readFileSync('app/(shop)/shop/ShopView.tsx', 'utf8');
+if (!shop.includes('Array.isArray(body.products)')) {
+  bad += 1;
+  console.error('✗ shop client must reject malformed catalog products payloads');
+}
+
 const feed = readFileSync('app/api/catalog/feed/route.ts', 'utf8');
 if (!feed.includes('FREEPASS_CATALOG_CONTRACT_VERSION')) {
   bad += 1;
