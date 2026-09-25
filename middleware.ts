@@ -14,8 +14,8 @@ const PUBLIC_SIGN_HOST = 'sign.freepasserp.com';
 const MAIN_PUBLIC_HOSTS = new Set(['freepasserp.com', 'www.freepasserp.com']);
 const RETIRED_MAIN_PATHS = [
   '/login', '/finder', '/inventory', '/members', '/settings',
-  '/audit', '/dev', '/diag', '/data-check', '/erp5', '/settlement',
-  '/contract', '/hub', '/interest', '/chat', '/connectors', '/policy', '/verify',
+  '/audit', '/dev', '/diag', '/data-check', '/erp5', '/settlement', '/estimate',
+  '/contract', '/hub', '/interest', '/chat', '/connectors', '/policy', '/verify', '/esign',
 ] as const;
 const isRetiredMainPath = (pathname: string) =>
   RETIRED_MAIN_PATHS.some((base) => pathname === base || pathname.startsWith(`${base}/`));
