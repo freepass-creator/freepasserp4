@@ -92,6 +92,7 @@
     "check:pipeline": "tsx scripts/check-pipeline-contracts.mts",
     "sim:sales-pending-identity": "tsx scripts/sim-sales-pending-identity.mts",
     "sim:sales-authoritative": "tsx scripts/sim-sales-authoritative-sync.mts",
+    "sim:freepass-data-sheet-handoff": "tsx scripts/sim-freepass-data-sheet-handoff.mts",
     "sim:sales-backup": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/sim-sheet-sync-backup.mts",
     "audit:sales-sync-preflight": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-sales-sync-preflight.mts",
     "audit:sales-erp-plan": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-sales-sheet-sync.mts",
