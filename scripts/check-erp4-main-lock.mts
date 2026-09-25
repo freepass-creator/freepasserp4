@@ -29,6 +29,9 @@ const shopUi = read('components/shop/shop-ui.tsx');
 const shopCard = read('components/shop/ShopCard.tsx');
 const shopDetail = read('components/shop/ShopDetail.tsx');
 const guestListing = read('lib/server/guest-listing.ts');
+const guestQuote = read('lib/server/guest-quote.ts');
+const shopStatus = read('app/api/shop/status/route.ts');
+const quickRoute = read('app/api/shop/quick/route.ts');
 const catalogBoundary = read('lib/server/freepass-catalog.ts');
 const query = read('lib/shop/query.ts');
 const pkg = read('package.json');
@@ -73,9 +76,11 @@ must(/MAIN_PUBLIC_HOSTS/.test(middleware)
   && /RETIRED_MAIN_PATHS/.test(middleware)
   && /isRetiredMainPath\(request\.nextUrl\.pathname\)/.test(middleware),
   '대표 ERP 도메인의 은퇴 업무 경로 정리 목록이 없다.');
-must(/new URL\('https:\/\/freepasserp\.com\/'\)/.test(middleware)
-  && /NextResponse\.redirect\([^\n]+, 308\)/.test(middleware),
-  '대표 ERP 도메인의 은퇴 업무 경로가 canonical 홈으로 영구 이동하지 않는다.');
+must(/MAIN_PUBLIC_HOSTS\.has\(host\) \|\| homeIsShop\(host\)/.test(middleware)
+  && /home\.pathname = '\/'/.test(middleware)
+  && /home\.search = ''/.test(middleware)
+  && /NextResponse\.redirect\(home, 308\)/.test(middleware),
+  'White Label 호스트의 은퇴 업무 경로가 같은 브랜드의 canonical 홈으로 영구 이동하지 않는다.');
 
 const guestAt = layout.indexOf('{guestSurface ? (');
 const elseAt = guestAt >= 0 ? layout.indexOf(') : (', guestAt) : -1;
@@ -104,6 +109,26 @@ must(!/getStore\s*\(/.test(guestListing) && !/Realtime Database|RTDB.*fallback/i
 // Check real call nodes: an await inside after(async () => ...) is not on the request path.
 must(hasDeferredShadowBoundary(guestListing),
   'FreePass Data shadow 관측이 손님 응답 critical path를 다시 막고 있다.');
+
+/* 공개 목록·상세·갱신시각은 같은 Consumer Boundary를 쓴다. */
+must(/from ['"]@\/lib\/server\/freepass-catalog['"]/.test(guestQuote)
+  && /cache\(readFreepassCatalog\)/.test(guestQuote)
+  && !/whitelabel-erp5-catalog/.test(guestQuote),
+  '공개 상세가 FreePass Catalog Consumer Boundary를 우회해 저장소 구현을 직접 읽는다.');
+must(/readFreepassCatalogFreshness/.test(catalogBoundary)
+  && /from ['"]@\/lib\/server\/freepass-catalog['"]/.test(shopStatus)
+  && /readFreepassCatalogFreshness\(\)/.test(shopStatus)
+  && !/firestorePathStore|whitelabel-erp5-catalog|readErp5StockFreshness/.test(shopStatus),
+  '공개 갱신시각이 Catalog Consumer Boundary 밖의 별도 원장을 다시 읽는다.');
+
+/* 빠른조건 구성도 코드 정본 한 곳만 사용한다. */
+must(!/readShopQuick|shop-quick-store/.test(shopPage)
+  && !/ShopQuickEditor|\/api\/shop\/quick/.test(shopView),
+  '공개 White Label이 Firestore shop_quick override/editor를 다시 사용한다.');
+must(!/shop-quick-store|writeShopQuick|readShopQuick/.test(quickRoute)
+  && /status:\s*410/.test(quickRoute)
+  && /wl\.quick \?\? null/.test(quickRoute),
+  '레거시 quick API가 두 번째 UI 설정 원장으로 다시 활성화됐다.');
 
 /* 3. UI 토큰 — 숫자를 화면 파일에서 새로 만들지 않고 SHOP 정본을 쓴다 */
 must(/top:\s*\{\s*title:\s*18,\s*cobrand:\s*12\s*\}/.test(shopUi),
@@ -178,7 +203,7 @@ if (failures.length) {
 
 console.log('✓ LOCK-00 운영 사용면 / 비사용면');
 console.log('✓ LOCK-01 제품/인증 경계');
-console.log('✓ LOCK-02 ERP5 공개 데이터 경계 + FreePass Data shadow 비간섭');
+console.log('✓ LOCK-02 FreePass Catalog 단일 소비 경계 + shadow 비간섭');
 console.log('✓ LOCK-03 목록·상세 디자인 토큰');
 console.log('✓ LOCK-04 URL 검색/필터/정렬 + 동일 가격행 계약');
 console.log('✓ LOCK-05 첫 화면 성능·로그인 진입점');
