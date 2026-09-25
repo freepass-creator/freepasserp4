@@ -45,6 +45,21 @@ const approvedRelease = {
   observedAt: '2026-09-25T07:00:00.000Z'
 };
 
+const manifest = {
+  contractVersion: 'freepass-sheet-manifest-v1' as const,
+  manifestId: approvedRelease.manifestId,
+  releaseId: approvedRelease.releaseId,
+  projectionId: approvedRelease.projectionId,
+  releaseAuthority: 'LEGACY_VERIFIED_BRIDGE' as const,
+  sourceCaptureDigest: approvedRelease.inputDigest,
+  sourceReadTime: approvedRelease.observedAt,
+  productCount: snapshot.products.length,
+  policyCount: snapshot.policies.length,
+  partnerCount: snapshot.partners.length,
+  dataDigest: approvedRelease.dataDigest,
+  generatedAt: snapshot.capturedAt
+};
+
 const unsigned: Omit<FreePassDataSheetHandoff, 'handoffHash'> = {
   contractVersion: 'freepass-sheet-handoff-v1',
   consumerId: 'google-sheets-f01',
@@ -52,6 +67,7 @@ const unsigned: Omit<FreePassDataSheetHandoff, 'handoffHash'> = {
   generatedAt: '2026-09-25T07:02:00.000Z',
   releaseAuthority: 'LEGACY_VERIFIED_BRIDGE',
   approvedRelease,
+  manifest,
   snapshot
 };
 
