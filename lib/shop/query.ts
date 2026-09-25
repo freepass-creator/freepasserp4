@@ -16,6 +16,7 @@
  *   **무엇을 모수로 삼고 어떻게 세는가**뿐이다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
+import type { FreepassCatalogProduct } from '@/lib/domain/freepass-catalog-contract';
 import { creditDisplay, isListableProduct, isOperatedPeriod, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import {
@@ -70,7 +71,7 @@ export type ShopQuickChip = { axis: ShopAxis; key: string; label?: string };
  *   달라서** 그걸 구현해 주려고 해」). 그래서 이 목록은 «기본값»이고, 채널이 제 줄
  *   (`lib/whitelabel.ts` `quick`)에 적으면 그것이 이긴다.
  * ★★**구간은 이름을 «손으로 안 적는다»** — `soloLabel(key)` 가 준다. 예전엔 화면에서만 손으로
- *   적어(「보증금 0원」) 걸린 조건 칩(「보증 없음」)과 **한 화면에서 두 말**이 됐다.
+ *   적어(「보증금 0원」) 걸린 조건 칩(「보증금 없음」)과 **한 화면에서 두 말**이 됐다.
  * ★차종·연료는 구간이 아니라 값이 곧 말이라 여기 적는다 —
  *   손님이 «말로 하는» 조건이다(「SUV 있어요?」 「전기차 돼요?」가 상담 첫 마디).
  */
@@ -335,9 +336,9 @@ export type ShopOption = {
 };
 export type ShopFacets = Record<ShopAxis, ShopOption[]>;
 
-export type ShopResult = {
+export type ShopResult<T extends EntityRecord = FreepassCatalogProduct> = {
   /** 조건을 다 통과한 차 — 화면에 그릴 목록. */
-  list: EntityRecord[];
+  list: T[];
   /** 조건 없이 팔 수 있는 차 전부 — 「전체차량 N대」의 N. */
   total: number;
   facets: ShopFacets;
@@ -357,11 +358,11 @@ export type ShopResult = {
  *   ⚠ 전에는 건수 0 을 뺐다. 그래서 손님이 「SUV」 하나를 누르면 제조사 열둘이 셋으로 줄고
  *     차급 줄이 절반 사라져, **방금 보던 자리가 없어졌다.** 조건칸은 «지도»라 모양이 흔들리면
  *     손님이 제 위치를 잃는다.
- *   ⇒ **명단과 차례는 «재고 전체»(`base`)가 정하고, 숫자만 «지금 조건»(`count`)이 정한다.**
+ *   ⇒ **명단과 차례는 «재고 전체»(`base`)가 정하고, 숫자만 «지금 조건」(`count`)이 정한다.**
  *     그래서 무엇을 눌러도 줄 수와 순서가 안 바뀐다 — 숫자만 오르내린다.
  * ★재고에 아예 없는 값은 여전히 안 선다(`base === 0`) — 그건 「지금 0」이 아니라 「원래 없다」다.
  */
-export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): ShopResult {
+export function runShopQuery<T extends EntityRecord>(rows: T[] | null, query: ShopQuery): ShopResult<T> {
   const pool = (rows || []).filter(isListableProduct);
   const { sel, q } = query;
   const searched = q.trim() ? pool.filter((p) => matchProductQuery(p, q)) : pool;
@@ -470,8 +471,8 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
    *   ⇒ 줄마다 한 번 재서 숫자로 들고, 비교는 **숫자끼리만** 한다. 694번이면 끝난다.
    * ★차례를 정하는 규칙은 **하나도 안 바뀐다** — 재는 시점만 앞으로 당긴 것이다.
    */
-  type Ranked = { p: EntityRecord; photo: number; v: number; tie: number; same: string };
-  const rankRows = (list: EntityRecord[], sort: ShopSort, withSame: boolean): Ranked[] =>
+  type Ranked = { p: T; photo: number; v: number; tie: number; same: string };
+  const rankRows = (list: T[], sort: ShopSort, withSame: boolean): Ranked[] =>
     list.map((p) => ({
       p,
       photo: photoRank(p),
@@ -484,7 +485,7 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
   /*
    * ★「같은 차 많은순」만 **한 대를 봐서는 못 정하는** 값이다 — 목록 전체를 세어야 순위가 나온다.
    *   그래서 `sortValue`(한 대짜리 잣대)에 못 넣고 여기서 «센 뒤에» 정렬한다.
-   * ★세는 모수는 «조건을 통과한 목록»이다. 전체 재고로 세면 「기아가 원래 많으니까」로 줄이 서서
+   * ★세는 모수는 **조건을 통과한 목록**이다. 전체 재고로 세면 「기아가 원래 많으니까」로 줄이 서서
    *   조건을 걸어도 순서가 안 변한다 — 손님이 방금 좁힌 것을 안 반영하는 꼴이다.
    */
   if (query.sort === 'many') {
@@ -506,7 +507,7 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
   }
 
   /*
-   * ⚠ 인기순은 «같은 값»이 무더기로 나온다(그랜저 89대가 전부 순위 1). 2차 잣대가 없으면
+   * ⚠ 인기순은 **같은 값**이 무더기로 나온다(그랜저 89대가 전부 순위 1). 2차 잣대가 없으면
    *   원천이 준 순서 그대로 서서, 새로고침할 때마다 첫 화면이 달라 보인다.
    *   ⇒ 같은 순위면 싼 것부터. 그러면 목록이 늘 같은 얼굴이다.
    */
@@ -527,7 +528,7 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
 export type ShopToken = { axis: ShopAxis; key: string; label: string; solo: boolean };
 
 /**
- * 구간 키의 «혼자 서는 이름» — 걸린 조건 칩이 쓴다.
+ * 구간 키의 **혼자 서는 이름** — 걸린 조건 칩이 쓴다.
  *
  * ★★칩에는 **축 앞머리를 안 붙인다**(사장님 2026-09-06 「거기 뭐 **월 대여료 · 보증금 · 기간
  *   넣을 필요 없어. 딱 보면 알지**」). 그래서 값이 «스스로» 무엇인지 말해야 한다 —
@@ -545,7 +546,7 @@ const SOLO_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 /**
- * 구간 키의 «혼자 서는 이름» — 빠른 조건 칩도 이걸 쓴다.
+ * 구간 키의 **혼자 서는 이름** — 빠른 조건 칩도 이걸 쓴다.
  * ★칩은 어디에 있든 같은 말이라야 한다. 예전엔 빠른 칩만 손으로 적어(「보증금 0원」)
  *   걸린 조건 칩(「보증 없음」)과 한 화면에서 두 말이 됐다.
  */

@@ -81,3 +81,24 @@ git diff --check
 예컨대 원천 보증금 누락과 확정 0원은 공급 계약에서 구분해 내려와야 한다. 이번 변경은 기존 보정 로직을 정당화하거나 확장하지 않는다.
 연식 표현·상태 enum·schema version/freshness·release hash·필드별 값 타입의 완전 검증은 공급 측 규격과 실제 자료에 맞춰 추가할 별도 항목이다.
 이 결과를 `PARITY_VERIFIED`나 실재고 무결성 증명으로 사용하지 않는다.
+
+## 6. 후속 실제 CI에서 확인한 공개 타입 연결 오류
+
+앞 절의 격리 검증 이후 Draft PR #496을 생성하여 실제 GitHub Actions 전체 검사를 실행했다.
+CI run `36117548023`, job `108015079108`에서 의존성 설치는 통과했지만 Typecheck가 실패했다.
+실제 로그는 `ShopView.tsx` 443/886/887행과 `shop/page.tsx` 117행의 오류 4건을 보고했다.
+공개 타입을 좁힌 이전 변경과 달리 Query 결과 및 서버 initial이 `EntityRecord[]`로 남아
+필수 `_key`, `product_code`, `price`를 보장하지 못하는 연결 오류다.
+
+- `ShopResult<T>` 및 `runShopQuery<T>`가 입력 행의 타입을 그대로 반환하도록 변경했다.
+- 기본 `ShopResult`는 공개 상품 타입이다. 기존의 넓은 내부/테스트 입력은 추론된 타입을 유지하며 공개 타입으로 승격시키지 않는다.
+- 정렬용 `Ranked`/`rankRows`도 `T`를 유지한다. 강제 형변환이나 공개 필수 필드 완화는 없다.
+- 서버 initial 타입을 `FreepassCatalogProduct[]`로 맞췄다.
+- `tests/freepass-catalog-query.types.ts`에 공개/원시/확장 타입 보존과 반례를 추가했다. 기존 전체 Typecheck에 포함된다.
+- 수정 전 원본 Query/SSR 파일은 Git blob SHA `b519d0ebd8c09ba04b90ee7ec55029d1336ddd14` / `5ef0415e7a2f00bffe899c42e132b669f6804bea`와 일치함을 확인했다.
+- 두 파일의 타입 제거 후 JavaScript를 수정 전후 비교하여 완전히 동일함을 확인했다(PASS). 검색/필터/정렬/초기 화면의 실행 로직과 기존 업무 이력은 유지했다.
+- 기존 90개 계약 사례를 다시 실행해 PASS를 확인했다. `git diff --check`도 PASS다.
+
+전체 CI가 실패 단계 이후의 디자인/화이트라벨/Production build 검사를 건너뛰었으므로
+그 검사들이 통과했다는 뜻이 아니다. 이 후속 수정의 CI 재실행 결과는 PR에 별도 기록하며,
+독립 검증과 전체 게이트 완료 전까지 Draft/HOLD를 유지한다.
