@@ -12,6 +12,7 @@ export type SalesPublishSnapshot = {
   snapshotId: string;
   capturedAt: string;
   source: 'firestore' | 'freepass-data';
+  releaseAuthority?: 'LEGACY_VERIFIED_BRIDGE' | 'CANONICAL_ACTIVE';
   approvedRelease?: {
     projectionId: string;
     releaseId: string;
