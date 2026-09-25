@@ -11,7 +11,54 @@ export type FreepassCatalogRate = {
   deposit: number;
 };
 
-export type FreepassCatalogPolicy = Record<string, unknown>;
+export type FreepassCatalogPolicyField =
+  | 'policy_name'
+  | 'policy_type'
+  | 'insurance_included'
+  | 'injury_compensation_limit'
+  | 'injury_deductible'
+  | 'property_compensation_limit'
+  | 'property_deductible'
+  | 'self_body_accident'
+  | 'self_body_deductible'
+  | 'personal_injury_compensation_limit'
+  | 'personal_injury_deductible'
+  | 'uninsured_damage'
+  | 'uninsured_compensation_limit'
+  | 'uninsured_deductible'
+  | 'own_damage_compensation'
+  | 'own_damage_repair_ratio'
+  | 'own_damage_compensation_rate'
+  | 'own_damage_min_deductible'
+  | 'own_damage_max_deductible'
+  | 'annual_roadside_assistance'
+  | 'roadside_assistance'
+  | 'annual_mileage'
+  | 'max_annual_mileage'
+  | 'mileage_upcharge_per_10000km'
+  | 'deposit_installment'
+  | 'deposit_card_payment'
+  | 'rental_card_payment'
+  | 'payment_method'
+  | 'payment_timing'
+  | 'penalty_condition'
+  | 'rental_region'
+  | 'delivery_fee'
+  | 'screening_criteria'
+  | 'basic_driver_age'
+  | 'driver_age_lowering'
+  | 'age_lowering_cost'
+  | 'driver_age_upper_limit'
+  | 'license_period'
+  | 'personal_driver_scope'
+  | 'business_driver_scope'
+  | 'additional_driver_allowance_count'
+  | 'additional_driver_cost'
+  | 'maintenance_service'
+  | 'deposit_return_days'
+  | 'buyout_notice_days'
+  | 'credit_grade';
+export type FreepassCatalogPolicy = Partial<Record<FreepassCatalogPolicyField, unknown>>;
 
 /**
  * Public product shape only. Do not add internal cost, settlement, source, auth, partner-code,
