@@ -998,7 +998,7 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
 {
   const standing = read('lib/domain/facet-standing.ts');
   const finder = read('lib/domain/product-filters.ts');
-  const editor = read('components/shop/ShopQuickEditor.tsx');
+  const quickApi = read('app/api/shop/quick/route.ts');
 
   // ㉠ 정본 — 줄은 base 가 세우고(0 이면 안 선다), 차례도 base 가 매긴다.
   must(/\.filter\(\(o\) => o\.base > 0\)/.test(standing) && /b\.base - a\.base/.test(standing),
@@ -1016,29 +1016,17 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
       'docs/DESIGN_CONFIRMED_SHOP.md §12');
   }
 
-  // ㉣ 빠른조건 칩도 같은 잣대다 — 「지금 0대」로 걷으면 칩 줄까지 같이 쭈그러든다.
-  must(/facets\[axis\]\.filter\(\(o\) => o\.base > 0/.test(editor),
-    '빠른조건을 «있는 값»이 아닌 데서 고르게 됐습니다 — 고르는 목록은 조건칸과 같은 집계에서 옵니다.',
-    'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
-  /*
-   * ㉤ 고치는 문 = **웹 조건칸 «맨 아래 구역»** · 칸 안은 **조건칸과 같은 체크 줄**(2026-09-11).
-   *   사장님 「퀵필터 조정하는 거 **설정페이지 맨 하단 섹션 하나** 주고 거기서 **펼쳐서** 넣게」 ·
-   *   「엥 필터는 **저렇게 나오면 안 되는데**??」(알약으로 쏟아 놓은 것) · 「**모바일 필터는 기존 게 맞는 거야**」.
-   */
-  must(/tail=\{quickTail\}/.test(shopView)
-      && /<ShopQuickEditor[\s\S]{0,200}value=\{quickAll\}/.test(shopView)
-      && /tail\?: ShopFilterTail/.test(read('components/shop/ShopFilters.tsx')),
-    '빠른조건 고치는 칸이 웹 조건칸 맨 아래에 없습니다.',
-    'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §13');
-  must(/<ShopFilters /.test(editor) && !/<ShopPill/.test(editor),
-    '빠른조건 칸이 조건칸과 다른 모양(알약 등)으로 값을 늘어놓습니다 — 같은 체크 줄 원자를 씁니다.',
-    'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §13');
-  must(!/ShopQuickEditor|\btail[=?:]/.test(read('components/shop/ShopFilterSheet.tsx')),
-    '폰 상세 조건 시트에 빠른조건 칸이 들어갔습니다 — 폰 시트는 기존 그대로입니다.',
-    'components/shop/ShopFilterSheet.tsx · docs/DESIGN_CONFIRMED_SHOP.md §13');
-  must(!/role="dialog"/.test(editor) && !/setQuickOpen/.test(shopView),
-    '빠른조건 고치기가 다시 «창»으로 떴습니다 — 조건칸 맨 아래 구역에서 펼쳐 고칩니다.',
-    'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §13');
+  // ㉣ 빠른조건의 구성 정본은 채널 코드 한 곳이다. 공개 화면에서 영구 편집 원장을 다시 만들지 않는다.
+  must(/const quickAll = wl\.quick \?\? DEFAULT_QUICK/.test(shopView),
+    '빠른조건이 lib/whitelabel.ts 채널 정본 + DEFAULT_QUICK 한 길을 쓰지 않습니다.',
+    'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11 CURRENT OVERRIDE');
+  must(!/ShopQuickEditor|quickTail|\/api\/shop\/quick/.test(shopView)
+      && !/ShopQuickEditor|\btail[=?:]/.test(read('components/shop/ShopFilterSheet.tsx')),
+    '공개 White Label에 runtime 빠른조건 편집 UI가 다시 들어왔습니다.',
+    'docs/DESIGN_CONFIRMED_SHOP.md §11·§13 CURRENT OVERRIDE');
+  must(/status:\s*410/.test(quickApi) && /wl\.quick \?\? null/.test(quickApi),
+    '레거시 quick API가 다시 runtime UI 설정 writer가 됐습니다.',
+    'app/api/shop/quick/route.ts · docs/DESIGN_CONFIRMED_SHOP.md §11 CURRENT OVERRIDE');
 
   must(/facets\[k\.axis\]\.some\(\(o\) => o\.key === k\.key && o\.base > 0\)/.test(shopView),
     '빠른조건 칩이 «지금 건수»로 사라집니다 — 조건을 누를 때마다 칩 줄이 같이 쭈그러듭니다.',
@@ -1145,6 +1133,7 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
  */
 {
   const statusRoute = read('app/api/shop/status/route.ts');
+  const catalogBoundary = read('lib/server/freepass-catalog.ts');
   const erp5 = read('lib/server/whitelabel-erp5-catalog.ts');
 
   must(/export async function readErp5StockFreshness/.test(erp5)
@@ -1155,18 +1144,18 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
     '재고 시각을 읽으려고 컬렉션을 통째로 읽고 있습니다 — 시각 하나에 1,600건을 읽을 이유가 없습니다.',
     'lib/server/whitelabel-erp5-catalog.ts readErp5StockFreshness · limit(1)');
 
-  /* ⚠ 잣대는 «뒷문이 시작되는 자리»로 잡는다 — Math.max 의 인자 차례가 바뀌어도 안 흔들리게. */
-  const atomAt = statusRoute.indexOf('readErp5StockFreshness()');
-  const maxAt = statusRoute.indexOf('pick(DAILY_SYNC_PATH');
-  must(atomAt > 0 && maxAt > 0 && atomAt < maxAt,
-    '머리띠 시각이 원자보다 옛 기록을 «먼저» 봅니다 — 화면이 그리는 데이터가 제 나이를 말해야 합니다.',
+  must(/export async function readFreepassCatalogFreshness/.test(catalogBoundary)
+      && /return readErp5StockFreshness\(\)/.test(catalogBoundary),
+    '현재 ERP5 freshness 구현이 FreePass Catalog Consumer Boundary 뒤에 있지 않습니다.',
+    'lib/server/freepass-catalog.ts readFreepassCatalogFreshness');
+  must(/from '@\/lib\/server\/freepass-catalog'/.test(statusRoute)
+      && /readFreepassCatalogFreshness\(\)/.test(statusRoute),
+    '머리띠 시각이 공개 Catalog Consumer Boundary를 우회합니다.',
     'app/api/shop/status/route.ts loadUpdated');
-  must(/if \(atom > 0\) return \{ ms: atom/.test(statusRoute),
-    '원자가 답했는데도 옛 기록을 계속 봅니다 — 답이 있으면 «그것만» 씁니다(뒤섞으면 2026-09-10 버그로 돌아갑니다).',
+  must(!/firestorePathStore|DAILY_SYNC_PATH|OPS_PIPELINE_PATH|readErp5StockFreshness/.test(statusRoute),
+    '머리띠 시각이 옛 상태 기록이나 ERP5 구현을 직접 읽습니다 — 공개 데이터 경계는 한 곳이어야 합니다.',
     'app/api/shop/status/route.ts loadUpdated');
-  must(!/Math\.max\([^)]*atom/.test(statusRoute),
-    '원자 시각을 옛 기록과 max() 로 섞었습니다 — 더 최근인 «엉뚱한» 기록이 묵은 재고를 가려 줍니다.',
-    'app/api/shop/status/route.ts loadUpdated');
+
 }
 
 /*
