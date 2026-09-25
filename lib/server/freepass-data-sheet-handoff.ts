@@ -116,6 +116,9 @@ export function materializeFreePassDataSalesSnapshot(
   }
 
   const manifest = handoff.manifest;
+  if (!manifest || typeof manifest !== 'object') {
+    throw new Error('HOLD: FreePass Data sheet manifest missing');
+  }
   if (
     manifest.contractVersion !== 'freepass-sheet-manifest-v1' ||
     manifest.manifestId !== handoff.approvedRelease.manifestId ||
