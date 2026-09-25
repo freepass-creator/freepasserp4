@@ -174,11 +174,47 @@ export function inspectFreepassCatalogProduct(product: unknown): FreepassCatalog
   return [...issues];
 }
 
-export function summarizeFreepassCatalogIssues(products: readonly unknown[]) {
-  const counts = Object.fromEntries(FREEPASS_CATALOG_ISSUES.map((issue) => [issue, 0])) as
-    Record<FreepassCatalogContractIssue, number>;
-  for (const product of products) {
-    for (const issue of inspectFreepassCatalogProduct(product)) counts[issue] += 1;
-  }
+export type FreepassCatalogIssueCounts = Record<FreepassCatalogContractIssue, number>;
+
+export function emptyFreepassCatalogIssueCounts(): FreepassCatalogIssueCounts {
+  return Object.fromEntries(FREEPASS_CATALOG_ISSUES.map((issue) => [issue, 0])) as FreepassCatalogIssueCounts;
+}
+
+export function addFreepassCatalogIssues(
+  counts: FreepassCatalogIssueCounts,
+  issues: readonly FreepassCatalogContractIssue[],
+): void {
+  for (const issue of new Set(issues)) counts[issue] += 1;
+}
+
+/**
+ * Compare one source row with the public row emitted by the adapter.
+ *
+ * maskedByAdapter means the source contract had an anomaly that no longer exists after
+ * adaptation. This is diagnostic evidence, not permission to keep coercing the source forever.
+ * introducedByAdapter is more severe: the adapter/public boundary created an anomaly that
+ * was not present in the supplied row.
+ */
+export function diffFreepassCatalogIssues(source: unknown, published: unknown): {
+  source: FreepassCatalogContractIssue[];
+  published: FreepassCatalogContractIssue[];
+  maskedByAdapter: FreepassCatalogContractIssue[];
+  introducedByAdapter: FreepassCatalogContractIssue[];
+} {
+  const sourceIssues = inspectFreepassCatalogProduct(source);
+  const publishedIssues = inspectFreepassCatalogProduct(published);
+  const sourceSet = new Set(sourceIssues);
+  const publishedSet = new Set(publishedIssues);
+  return {
+    source: sourceIssues,
+    published: publishedIssues,
+    maskedByAdapter: sourceIssues.filter((issue) => !publishedSet.has(issue)),
+    introducedByAdapter: publishedIssues.filter((issue) => !sourceSet.has(issue)),
+  };
+}
+
+export function summarizeFreepassCatalogIssues(products: readonly unknown[]): FreepassCatalogIssueCounts {
+  const counts = emptyFreepassCatalogIssueCounts();
+  for (const product of products) addFreepassCatalogIssues(counts, inspectFreepassCatalogProduct(product));
   return counts;
 }
