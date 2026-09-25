@@ -125,6 +125,10 @@
       "why": "ERP5 canonical Firebase 경계 — production OIDC target 고정 + 루트 generic Firebase deploy의 ERP5 기본 타깃 금지",
       "known_bad_pending": "표본 없음. 실제 워크플로 문자열 includes() 만 본다."
     },
+    "sim:freepass-data-sheet-handoff": {
+      "why": "FreePass Data 승인 release 기반 F01/F86 handoff 계약 — consumer/workbook 교차, handoff hash, 재고 집계, approvedRelease 누락을 fail-closed",
+      "known_bad_pending": "현재 sim 자체에 정상/변조/교차/집계위조/승인증거누락 반례가 있으나, 검사기 소스 자체를 무력화해 빨개지는지 증명하는 known-bad harness 연결은 아직 없다."
+    },
     "check:store": {
       "why": "★RTDB 스왑점 밖 직접 열기. 오늘 빠져 있던 바로 그 자다",
       "known_bad": {
