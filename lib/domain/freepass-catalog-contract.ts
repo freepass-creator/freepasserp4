@@ -71,6 +71,7 @@ export const FREEPASS_CATALOG_ISSUES = [
   'invalid-term',
   'invalid-deposit',
   'invalid-mileage',
+  'invalid-year',
   'invalid-image-url',
 ] as const;
 export type FreepassCatalogContractIssue = (typeof FREEPASS_CATALOG_ISSUES)[number];
@@ -81,6 +82,15 @@ const isRecord = (value: unknown): value is UnknownRecord =>
 const text = (value: unknown): string => typeof value === 'string' ? value.trim() : '';
 const finiteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
+
+function parsedYear(value: unknown): number {
+  if (value == null || value === '') return 0;
+  const match = /(\d{2,4})/.exec(String(value));
+  if (!match) return -1;
+  const raw = Number(match[1]);
+  const year = raw >= 100 ? raw : raw < 50 ? 2000 + raw : 1900 + raw;
+  return year >= 1900 && year <= new Date().getFullYear() + 2 ? year : -1;
+}
 
 export function catalogProductId(product: unknown): string {
   return isRecord(product) ? text(product.product_code) || text(product._key) : '';
@@ -137,10 +147,14 @@ export function inspectFreepassCatalogProduct(product: unknown): FreepassCatalog
         continue;
       }
       // Number(true), Number('670000') and Number(null) must not make a bad value valid.
-      if (!finiteNumber(rate.rent) || rate.rent <= 0) issues.add('invalid-price');
+      // Keep this aligned with the customer price reader: outside 10만원~2천만원 is not displayable rent.
+      if (!finiteNumber(rate.rent) || rate.rent < 100_000 || rate.rent > 20_000_000) issues.add('invalid-price');
       if (!finiteNumber(rate.deposit) || rate.deposit < 0) issues.add('invalid-deposit');
     }
   }
+
+  const year = product.year;
+  if (year != null && year !== '' && parsedYear(year) < 0) issues.add('invalid-year');
 
   // Unknown mileage is not a claim of 0 km; inspect only an explicitly supplied value.
   const mileage = product.mileage;
