@@ -9,7 +9,7 @@
  * 계산       인도일이 있어야 청구월이 나온다 (billingMonth)
  * 박은 값    사람이 정한 달이 계산보다 «이긴다» (billMonth)
  * ```
- *   실측 2026-09-07 — 하허호가 「누락」이라 적어 온 장은미·오주형·전은재 셋은 원장에 줄이 있는데
+ *   실측 2026-09-07 — 하허호가 「누락」이라 적어 온 홍길동·오주형·전은재 셋은 원장에 줄이 있는데
  *   **인도일이 비어 8월에도 9월에도 안 섰다.** 그래서 공급사 청구서에도, 채널 정산서에도 없었다.
  *   ⇒ 인도일을 기다리지 않는다. **접수일이 있으면 청구를 넣고, 틀렸으면 공급사가 말한다.**
  *
@@ -18,7 +18,7 @@
  *
  * ```
  * npx tsx scripts/set-bill-month.mts --월=2026-08 --차=133다9973,353더3935,373어6607
- * npx tsx scripts/set-bill-month.mts --월=2026-08 --차=133다9973 --임차인=장은미 --apply
+ * npx tsx scripts/set-bill-month.mts --월=2026-08 --차=133다9973 --임차인=홍길동 --apply
  * ```
  */
 import { readFileSync } from 'node:fs';
@@ -34,14 +34,14 @@ const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
 const arg = (n: string) => { const a = process.argv.find((x) => x.startsWith(`--${n}=`)); return a ? a.slice(n.length + 3) : ''; };
 const MONTH = S(arg('월'));
-/** ★차번마다 임차인을 붙일 수 있다 — `133다9973:장은미` 꼴. 같은 차가 재렌트로 두 줄인 때를 위해서다. */
+/** ★차번마다 임차인을 붙일 수 있다 — `133다9973:홍길동` 꼴. 같은 차가 재렌트로 두 줄인 때를 위해서다. */
 const PLATES = S(arg('차')).split(',').map((x) => { const [p, w] = x.split(':'); return { plate: P(p), who: S(w) }; }).filter((x) => x.plate);
 const WHO = S(arg('임차인'));
 const WHY = S(arg('왜')) || '인도일 없이 접수일 기준으로 청구를 넣는다 — 틀리면 공급사가 말한다(사장님 2026-09-07)';
 const APPLY = process.argv.includes('--apply');
 const OVER = process.argv.includes('--덮어');
 if (!/^\d{4}-\d{2}$/.test(MONTH) || !PLATES.length) {
-  console.log('\n  npx tsx scripts/set-bill-month.mts --월=2026-08 --차=133다9973,353더3935 [--임차인=장은미] [--덮어] [--apply]\n');
+  console.log('\n  npx tsx scripts/set-bill-month.mts --월=2026-08 --차=133다9973,353더3935 [--임차인=홍길동] [--덮어] [--apply]\n');
   process.exit(1);
 }
 
