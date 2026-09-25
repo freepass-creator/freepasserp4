@@ -102,3 +102,34 @@ CI run `36117548023`, job `108015079108`에서 의존성 설치는 통과했지�
 전체 CI가 실패 단계 이후의 디자인/화이트라벨/Production build 검사를 건너뛰었으므로
 그 검사들이 통과했다는 뜻이 아니다. 이 후속 수정의 CI 재실행 결과는 PR에 별도 기록하며,
 독립 검증과 전체 게이트 완료 전까지 Draft/HOLD를 유지한다.
+
+
+## 7. 원천 Contract와 Adapter 오류 분리
+
+공개 상품만 검사하면 Adapter가 원천 오류를 정상값처럼 보이게 만든 경우를 구분할 수 없다.
+이를 위해 `diffFreepassCatalogIssues(input, published)`를 추가하고 실제 `guest-listing` 경로에서
+각 공개 상품마다 원천 입력과 Adapter 출력의 오류를 비교 집계한다.
+
+- `inputIssues`: FreePass Data/Consumer Contract 쪽에서 해결해야 할 입력 이상.
+- `publishedIssues`: 공개 경계까지 남아 실제 White Label에 영향을 줄 수 있는 이상.
+- `maskedByAdapter`: 입력 이상이 현재 호환 보정 때문에 공개면에서는 사라진 경우. 호환부채로 기록하며 원천 수정 없이 영구 허용하지 않는다.
+- `introducedByAdapter`: 입력에는 없었는데 Adapter 이후 생긴 이상. FreePassERP.com 구현 회귀로 분류한다.
+
+이 집계는 `after()`에서 로그만 남기며 응답 차단·상품 제외·원천 write·값 추정을 하지 않는다.
+특정 개별 화이트라벨 채널의 운영/동기화도 건드리지 않는다.
+
+## 8. 2026-09-25 후속 CI 및 검사기 오탐 수정
+
+CI run `36127820529`에서 다음 단계가 모두 PASS했다:
+Typecheck, 폰트/디자인 토큰, 상품찾기 격자, 확정 디자인, Stability Lock, 보증금, 건물도면,
+UI 계약, 검색/필터 성능, 브랜드, 워크플로, ERP5 Firebase 경계, RTDB 경계, 견적 회귀,
+웹·모바일 공통 feed, guest surface/fields, 옵션 파서, 공급사 울타리.
+
+`check:whitelabel`의 기존 구조검사는 모두 PASS했지만 신규 공개 Contract guard가
+함수 인자 `source: unknown`를 공개 상품 필드 `source`로 오인해 실패했다.
+금지 필드 검사는 이제 전체 파일 문자열이 아니라 `FreepassCatalogProduct` 타입 본문만 검사한다.
+보호 강도는 낮추지 않았으며 `vehicle_price`, `fee`, `commission`, `account_number`,
+`provider_company_code`, `partner_code`, `source` 공개를 계속 차단한다.
+
+별도 전수 스캔에서 `app/(shop)`, `components/shop`, `lib/shop`의 실행 코드에는
+Firebase/Firestore/RTDB 직접 의존과 ERP4 런타임 의존이 0건으로 확인됐다.
