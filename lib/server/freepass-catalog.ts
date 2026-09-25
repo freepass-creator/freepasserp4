@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { readWhitelabelCatalogFromErp5 } from './whitelabel-erp5-catalog';
+import { readErp5StockFreshness, readWhitelabelCatalogFromErp5 } from './whitelabel-erp5-catalog';
 
 type Rec = Record<string, any>;
 
@@ -28,4 +28,14 @@ export async function readFreepassCatalog(
   options: FreepassCatalogReadOptions = {},
 ): Promise<FreepassCatalogRead> {
   return readWhitelabelCatalogFromErp5(options);
+}
+
+/**
+ * Public catalog freshness boundary.
+ * Keep the customer-facing stock timestamp on the same source generation as the catalog itself.
+ * The current implementation delegates to ERP5; a FreePass Data cutover must change this boundary,
+ * not the shop status route or UI.
+ */
+export async function readFreepassCatalogFreshness(): Promise<number> {
+  return readErp5StockFreshness();
 }
