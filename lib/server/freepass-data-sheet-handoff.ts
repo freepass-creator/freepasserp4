@@ -17,6 +17,20 @@ export type FreePassDataSheetHandoff = {
   generatedAt: string;
   releaseAuthority: 'LEGACY_VERIFIED_BRIDGE' | 'CANONICAL_ACTIVE';
   approvedRelease: FreePassDataApprovedRelease;
+  manifest: {
+    contractVersion: 'freepass-sheet-manifest-v1';
+    manifestId: string;
+    releaseId: string;
+    projectionId: string;
+    releaseAuthority: 'LEGACY_VERIFIED_BRIDGE' | 'CANONICAL_ACTIVE';
+    sourceCaptureDigest: string;
+    sourceReadTime: string;
+    productCount: number;
+    policyCount: number;
+    partnerCount: number;
+    dataDigest: string;
+    generatedAt: string;
+  };
   snapshot: {
     version: typeof SALES_PUBLISH_SNAPSHOT_VERSION;
     snapshotId: string;
@@ -99,6 +113,24 @@ export function materializeFreePassDataSalesSnapshot(
   const { handoffHash, ...unsignedHandoff } = handoff;
   if (hashFreePassDataSheetHandoff(unsignedHandoff) !== handoffHash) {
     throw new Error('HOLD: FreePass Data sheet handoff hash mismatch');
+  }
+
+  const manifest = handoff.manifest;
+  if (
+    manifest.contractVersion !== 'freepass-sheet-manifest-v1' ||
+    manifest.manifestId !== handoff.approvedRelease.manifestId ||
+    manifest.releaseId !== handoff.approvedRelease.releaseId ||
+    manifest.projectionId !== handoff.approvedRelease.projectionId ||
+    manifest.releaseAuthority !== handoff.releaseAuthority ||
+    manifest.sourceCaptureDigest !== handoff.approvedRelease.inputDigest ||
+    manifest.dataDigest !== handoff.approvedRelease.dataDigest ||
+    manifest.productCount !== handoff.snapshot.products.length ||
+    manifest.policyCount !== handoff.snapshot.policies.length ||
+    manifest.partnerCount !== handoff.snapshot.partners.length ||
+    !Number.isFinite(Date.parse(manifest.sourceReadTime)) ||
+    !Number.isFinite(Date.parse(manifest.generatedAt))
+  ) {
+    throw new Error('HOLD: FreePass Data sheet manifest evidence mismatch');
   }
 
   const actualInventory = inventoryCountSnapshot(handoff.snapshot.products);
