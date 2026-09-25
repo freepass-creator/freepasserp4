@@ -22,7 +22,7 @@ for (const key of ['1', '6', '12', '60', '24_3만', '36_20000']) add(`valid term
 for (const key of ['0', '61', '-1', '1.5', '1e1', '12months', '12_', '']) {
   add(`invalid term ${key || '(empty)'}`, withRate(rate, key), ['invalid-term']);
 }
-for (const rent of [0, -1, NaN, Infinity, -Infinity, true, false, null, undefined, '', '670000', '670,000', [], {}]) {
+for (const rent of [0, 99_999, 20_000_001, -1, NaN, Infinity, -Infinity, true, false, null, undefined, '', '670000', '670,000', [], {}]) {
   add(`invalid rent ${String(rent)}`, withRate({ ...rate, rent }), ['invalid-price']);
 }
 add('one good row cannot hide a bad row', {
@@ -42,6 +42,8 @@ add('identifier objects are not stringified', { ...good, product_code: {}, _key:
 add('blank plate falls back to VIN', { ...good, car_number: ' ', vin: 'TEST-VIN' });
 add('missing vehicle identity', { ...good, car_number: '', vin: '' }, ['missing-vehicle-identity']);
 add('vehicle identity object is invalid', { ...good, car_number: {} }, ['missing-vehicle-identity']);
+for (const year of [undefined, null, '', 2019, '2019-03', '24년식', '99년식']) add('valid or absent year', { ...good, year });
+for (const year of ['unknown', 1899, 2200]) add('invalid year', { ...good, year }, ['invalid-year']);
 for (const mileage of [0, 83_000, undefined, null, '']) add('valid or absent mileage', { ...good, mileage });
 for (const mileage of [-1, NaN, Infinity, true, '83000']) {
   add('invalid mileage', { ...good, mileage }, ['invalid-mileage']);
