@@ -36,7 +36,12 @@ assert.match(feed, /loadGuestListing/);
 assert.doesNotMatch(feed, /firebaseAdminApp|firestore-ref-shim|\.ref\(/);
 
 const listing = source('lib/server/guest-listing.ts');
-assert.match(listing, /readWhitelabelCatalogFromErp5/);
+// The approved consumer facade is a boundary, not an authority change.
+const boundary = source('lib/server/freepass-catalog.ts');
+assert.match(listing, /const src = await readFreepassCatalog\(/);
+assert.match(listing, /from ['"]@\/lib\/server\/freepass-catalog['"]/);
+assert.match(boundary, /return readWhitelabelCatalogFromErp5\(options\)/);
+assert.doesNotMatch(boundary, /firebaseAdminApp|firestore-ref-shim|\.ref\(/);
 assert.match(listing, /includePartners: !!providerCode/);
 assert.match(listing, /includeUsers: !!share/);
 assert.doesNotMatch(listing, /firebaseAdminApp|firestore-ref-shim|\.ref\(/);
