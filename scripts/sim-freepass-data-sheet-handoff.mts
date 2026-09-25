@@ -5,6 +5,7 @@ import path from 'node:path';
 import { inventoryCountSnapshot } from '../lib/domain/inventory-contract';
 import {
   hashFreePassDataSheetHandoff,
+  hashFreePassDataSheetPayload,
   materializeFreePassDataSalesSnapshot,
   type FreePassDataSheetHandoff
 } from '../lib/server/freepass-data-sheet-handoff';
@@ -20,15 +21,6 @@ const product = {
   source: 'test-source'
 };
 
-const approvedRelease = {
-  projectionId: 'erp-public',
-  releaseId: 'rel_test',
-  manifestId: 'manifest_test',
-  inputDigest: 'input_test',
-  dataDigest: 'data_test',
-  observedAt: '2026-09-25T07:00:00.000Z'
-};
-
 const snapshot = {
   version: 1 as const,
   snapshotId: 'snapshot-test',
@@ -39,11 +31,26 @@ const snapshot = {
   inventory: inventoryCountSnapshot([product])
 };
 
+const approvedRelease = {
+  projectionId: 'sheet-publication-bridge',
+  releaseId: 'rel_test',
+  manifestId: 'manifest_test',
+  inputDigest: 'input_test',
+  dataDigest: hashFreePassDataSheetPayload({
+    products: snapshot.products,
+    policies: snapshot.policies,
+    partners: snapshot.partners,
+    inventory: snapshot.inventory
+  }),
+  observedAt: '2026-09-25T07:00:00.000Z'
+};
+
 const unsigned: Omit<FreePassDataSheetHandoff, 'handoffHash'> = {
   contractVersion: 'freepass-sheet-handoff-v1',
   consumerId: 'google-sheets-f01',
   workbook: 'F01',
   generatedAt: '2026-09-25T07:02:00.000Z',
+  releaseAuthority: 'LEGACY_VERIFIED_BRIDGE',
   approvedRelease,
   snapshot
 };
@@ -55,6 +62,7 @@ const handoff: FreePassDataSheetHandoff = {
 
 const materialized = materializeFreePassDataSalesSnapshot(handoff);
 assert.equal(materialized.source, 'freepass-data');
+assert.equal(materialized.releaseAuthority, 'LEGACY_VERIFIED_BRIDGE');
 assert.deepEqual(materialized.approvedRelease, approvedRelease);
 assert.equal(materialized.inventory.registered, 1);
 assert.ok(materialized.payloadHash);
