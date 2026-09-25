@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { ShopView } from './ShopView';
 import { coBrandName, guestProviderFence, hasBrand, resolveGuestWhitelabel, ogImage, OG_SIZE } from '@/lib/whitelabel';
-import { readShopQuick } from '@/lib/server/shop-quick-store';
 import { loadGuestListing } from '@/lib/server/guest-listing';
 import { readQuery, runShopQuery, type ShopFacets } from '@/lib/shop/query';
 import type { FreepassCatalogProduct } from '@/lib/domain/freepass-catalog-contract';
@@ -65,12 +64,9 @@ export default async function ShopPage({ searchParams }: Params) {
   // 호스트가 정본이고 `?wl=` 은 도메인 붙이기 «전» 미리보기용 — 상세(`/q`)와 같은 규칙이다.
   const wl = resolveGuestWhitelabel((await headers()).get('host'), one(sp.wl));
   /*
-   * ★★**화면에서 고친 빠른조건은 «서버»가 실어 보낸다**(사장님 2026-09-10 「퀵필터를 수정할 수
-   *   있게 해주면 좋겠어」). 클라이언트에서 뒤늦게 받아 오면 **칩 줄이 한 번 그려진 뒤 바뀐다** —
-   *   손님 눈에는 화면이 흔들리는 것이고, 머리띠를 서버로 옮긴 이유(위 머리말 ①)와 같은 함정이다.
-   * ★고친 적 없는 채널은 `null` 이라 **채널 표의 기본판**이 그대로 선다 — 한 픽셀도 안 바뀐다.
+   * 빠른조건은 채널 정본(`lib/whitelabel.ts`)만 쓴다.
+   * Firestore `shop_quick` runtime override는 현재 White Label 실행 경로에서 사용하지 않는다.
    */
-  const quick = await readShopQuick(wl.key);
   /*
    * ★★★**필터·건수는 «서버»가 같이 내려준다 — 손님이 기다리지 않게**(사장님 2026-09-16
    *   「화이트라벨 **새로고침하거나 새로 들어오면 왜 바로 안 열리지**?? · **필터는 바로 열려야지**」).
@@ -114,5 +110,5 @@ export default async function ShopPage({ searchParams }: Params) {
     initial = { facets, total, list: list.slice(0, FIRST_SCREEN) };
   } catch { /* 곁다리다 — 브라우저가 받아 그린다 */ }
 
-  return <ShopView wl={quick ? { ...wl, quick } : wl} initial={initial} />;
+  return <ShopView wl={wl} initial={initial} />;
 }
