@@ -1,3 +1,8 @@
+/**
+ * LEGACY_ONLY — FreePassERP.com v1에서 사용하지 않음 (2026-09-26).
+ * 현재 quick-filter 정본은 `lib/whitelabel.ts` 하나다. 이 파일을 공개 White Label 실행 경로에
+ * 다시 연결하지 않는다. 과거 동작/복구 참고를 위해 코드만 보존한다.
+ */
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import type { ShopQuickChip } from '@/lib/shop/query';
