@@ -8,7 +8,12 @@ import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import { companyAlias } from '@/lib/domain/identity';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { summarizeFreepassCatalogIssues, type FreepassCatalogProduct } from '@/lib/domain/freepass-catalog-contract';
+import {
+  addFreepassCatalogIssues,
+  diffFreepassCatalogIssues,
+  emptyFreepassCatalogIssueCounts,
+  type FreepassCatalogProduct,
+} from '@/lib/domain/freepass-catalog-contract';
 
 type Rec = Record<string, unknown>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -52,6 +57,12 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
   const policies = Object.entries(src.policies).map(([policyKey, value]) => ({ ...(value || {}), _key: policyKey } as Rec));
 
   const products: FreepassCatalogProduct[] = [];
+  const contractDiagnostics = {
+    inputIssues: emptyFreepassCatalogIssueCounts(),
+    publishedIssues: emptyFreepassCatalogIssueCounts(),
+    maskedByAdapter: emptyFreepassCatalogIssueCounts(),
+    introducedByAdapter: emptyFreepassCatalogIssueCounts(),
+  };
   for (const [docKey, p] of Object.entries(src.products)) {
     const key = S(p?._key) || S(p?.product_code) || docKey;
     if (!p || typeof p !== 'object' || dead(p)) continue;
@@ -65,7 +76,21 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
      *   응답이 gzip 300KB → 126KB 로 준다(2026-09-17 운영 746대 실측).
      *   자르는 자리가 여기인 이유: 정제기(`sanitizeProductForGuest`)는 상세도 같이 쓴다.
      */
-    products.push(slimForList(sanitizeProductForGuest(key, p, policy)));
+    const published = slimForList(sanitizeProductForGuest(key, p, policy));
+    products.push(published);
+
+    /*
+     * Contract diagnosis stays observational. It never rewrites the source row or blocks a customer response.
+     * - inputIssues: source/consumer-contract problem to send back to FreePass Data
+     * - maskedByAdapter: source anomaly currently hidden by compatibility normalization
+     * - introducedByAdapter: regression created inside FreePassERP.com and therefore our bug
+     * - publishedIssues: anomaly still visible at the public boundary
+     */
+    const diff = diffFreepassCatalogIssues(merged, published);
+    addFreepassCatalogIssues(contractDiagnostics.inputIssues, diff.inputIssues);
+    addFreepassCatalogIssues(contractDiagnostics.publishedIssues, diff.published);
+    addFreepassCatalogIssues(contractDiagnostics.maskedByAdapter, diff.maskedByAdapter);
+    addFreepassCatalogIssues(contractDiagnostics.introducedByAdapter, diff.introducedByAdapter);
   }
 
   /*
@@ -76,9 +101,17 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
    */
   if (!providerCode && !share) {
     after(async () => {
-      const issues = summarizeFreepassCatalogIssues(products);
-      if (Object.values(issues).some((count) => count > 0)) {
-        console.warn('[freepass-catalog-contract]', JSON.stringify({ count: products.length, issues }));
+      const hasAny = (counts: Record<string, number>) => Object.values(counts).some((count) => count > 0);
+      if (
+        hasAny(contractDiagnostics.inputIssues)
+        || hasAny(contractDiagnostics.publishedIssues)
+        || hasAny(contractDiagnostics.maskedByAdapter)
+        || hasAny(contractDiagnostics.introducedByAdapter)
+      ) {
+        console.warn('[freepass-catalog-contract]', JSON.stringify({
+          count: products.length,
+          ...contractDiagnostics,
+        }));
       }
       await observeFreepassDataShadow(products);
     });
