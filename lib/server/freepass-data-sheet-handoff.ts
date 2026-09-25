@@ -15,6 +15,7 @@ export type FreePassDataSheetHandoff = {
   consumerId: FreePassSheetConsumerId;
   workbook: FreePassSheetWorkbook;
   generatedAt: string;
+  releaseAuthority: 'LEGACY_VERIFIED_BRIDGE' | 'CANONICAL_ACTIVE';
   approvedRelease: FreePassDataApprovedRelease;
   snapshot: {
     version: typeof SALES_PUBLISH_SNAPSHOT_VERSION;
@@ -59,6 +60,9 @@ export function materializeFreePassDataSalesSnapshot(
   if (handoff.consumerId !== expectedConsumer(handoff.workbook)) {
     throw new Error('HOLD: FreePass Data sheet consumer/workbook mismatch');
   }
+  if (!['LEGACY_VERIFIED_BRIDGE', 'CANONICAL_ACTIVE'].includes(handoff.releaseAuthority)) {
+    throw new Error('HOLD: invalid FreePass Data release authority');
+  }
   if (!Number.isFinite(Date.parse(handoff.generatedAt))) {
     throw new Error('HOLD: invalid FreePass Data handoff generatedAt');
   }
@@ -98,12 +102,22 @@ export function materializeFreePassDataSalesSnapshot(
   if (JSON.stringify(actualInventory) !== JSON.stringify(handoff.snapshot.inventory)) {
     throw new Error('HOLD: FreePass Data sheet handoff inventory mismatch');
   }
+  const actualDataDigest = hashFreePassDataSheetHandoff({
+    products: handoff.snapshot.products,
+    policies: handoff.snapshot.policies,
+    partners: handoff.snapshot.partners,
+    inventory: handoff.snapshot.inventory
+  } as any);
+  if (actualDataDigest !== handoff.approvedRelease.dataDigest) {
+    throw new Error('HOLD: FreePass Data sheet snapshot data digest mismatch');
+  }
 
   const unsigned: Omit<SalesPublishSnapshot, 'payloadHash'> = {
     version: handoff.snapshot.version,
     snapshotId: handoff.snapshot.snapshotId,
     capturedAt: handoff.snapshot.capturedAt,
     source: 'freepass-data',
+    releaseAuthority: handoff.releaseAuthority,
     approvedRelease: { ...handoff.approvedRelease },
     products: structuredClone(handoff.snapshot.products),
     policies: structuredClone(handoff.snapshot.policies),
