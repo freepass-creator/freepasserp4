@@ -88,7 +88,7 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
      */
     const diff = diffFreepassCatalogIssues(merged, published);
     addFreepassCatalogIssues(contractDiagnostics.inputIssues, diff.inputIssues);
-    addFreepassCatalogIssues(contractDiagnostics.publishedIssues, diff.published);
+    addFreepassCatalogIssues(contractDiagnostics.publishedIssues, diff.publishedIssues);
     addFreepassCatalogIssues(contractDiagnostics.maskedByAdapter, diff.maskedByAdapter);
     addFreepassCatalogIssues(contractDiagnostics.introducedByAdapter, diff.introducedByAdapter);
   }

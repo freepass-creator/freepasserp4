@@ -133,3 +133,13 @@ UI 계약, 검색/필터 성능, 브랜드, 워크플로, ERP5 Firebase 경계, 
 
 별도 전수 스캔에서 `app/(shop)`, `components/shop`, `lib/shop`의 실행 코드에는
 Firebase/Firestore/RTDB 직접 의존과 ERP4 런타임 의존이 0건으로 확인됐다.
+
+
+## 9. 2026-09-25 Contract 진단 필드명 정합성 보정
+
+진단 집계 정본은 문서·로그·호출부에서 `publishedIssues`였지만, `diffFreepassCatalogIssues()` 반환 타입만 `published`로 남아 있어 호출부가 `diff.published → contractDiagnostics.publishedIssues`로 다시 번역하고 있었다.
+공개 데이터나 판정 로직은 바꾸지 않고 반환 필드명을 `publishedIssues`로 통일했다. 관련 회귀 시뮬레이션도 동일 이름을 직접 검증하도록 수정했다.
+
+- 영향 범위: FreePassERP.com 내부 진단 Contract와 테스트만 변경.
+- 비영향 범위: FreePass Data 원천, 공개 상품 payload, F01/F86 등 개별 채널, 필터/정렬/상세 UI, 가격 계산.
+- 목적: Adapter/원천 진단 어휘를 한 이름으로 고정해 후속 로그·MD·자동 검사에서 번역 계층을 만들지 않는다.

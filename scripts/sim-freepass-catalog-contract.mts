@@ -90,13 +90,13 @@ const masked = diffFreepassCatalogIssues(
   good,
 );
 assert.deepEqual(masked.inputIssues, ['invalid-price']);
-assert.deepEqual(masked.published, []);
+assert.deepEqual(masked.publishedIssues, []);
 assert.deepEqual(masked.maskedByAdapter, ['invalid-price']);
 assert.deepEqual(masked.introducedByAdapter, []);
 
 const introduced = diffFreepassCatalogIssues(good, { ...good, mileage: -1 });
 assert.deepEqual(introduced.inputIssues, []);
-assert.deepEqual(introduced.published, ['invalid-mileage']);
+assert.deepEqual(introduced.publishedIssues, ['invalid-mileage']);
 assert.deepEqual(introduced.maskedByAdapter, []);
 assert.deepEqual(introduced.introducedByAdapter, ['invalid-mileage']);
 
