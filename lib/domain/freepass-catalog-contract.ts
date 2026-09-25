@@ -196,7 +196,7 @@ export function addFreepassCatalogIssues(
  * was not present in the supplied row.
  */
 export function diffFreepassCatalogIssues(source: unknown, published: unknown): {
-  source: FreepassCatalogContractIssue[];
+  inputIssues: FreepassCatalogContractIssue[];
   published: FreepassCatalogContractIssue[];
   maskedByAdapter: FreepassCatalogContractIssue[];
   introducedByAdapter: FreepassCatalogContractIssue[];
@@ -206,7 +206,7 @@ export function diffFreepassCatalogIssues(source: unknown, published: unknown): 
   const sourceSet = new Set(sourceIssues);
   const publishedSet = new Set(publishedIssues);
   return {
-    source: sourceIssues,
+    inputIssues: sourceIssues,
     published: publishedIssues,
     maskedByAdapter: sourceIssues.filter((issue) => !publishedSet.has(issue)),
     introducedByAdapter: publishedIssues.filter((issue) => !sourceSet.has(issue)),
