@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { after } from 'next/server';
 import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { observeFreepassDataShadow } from '@/lib/server/freepass-data-shadow';
 import { sanitizeAgentForGuest, sanitizeProductForGuest, slimForList } from '@/lib/domain/public-catalog';
@@ -70,9 +71,10 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
    * FreePass Data는 아직 손님에게 값을 공급하지 않는다.
    * 전체 카탈로그 요청에서만 Catalog V1 erp-public projection을 shadow로 읽어 수량/차번 parity를 관측한다.
    * shadow 오류나 불일치는 현재 ERP5 손님 응답에 영향을 주지 않는다.
+   * 관측 자체도 손님 응답을 늦추면 안 되므로 Next.js after()로 응답 완료 뒤 실행한다.
    */
   if (!providerCode && !share) {
-    await observeFreepassDataShadow(products);
+    after(() => observeFreepassDataShadow(products));
   }
 
   /*

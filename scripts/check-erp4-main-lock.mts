@@ -95,6 +95,9 @@ must(/slimForList\(sanitizeProductForGuest/.test(guestListing),
   '공개 목록이 guest sanitize + list slim 경계를 거치지 않는다.');
 must(!/getStore\s*\(/.test(guestListing) && !/Realtime Database|RTDB.*fallback/i.test(guestListing.replace(/\/\*[\s\S]*?\*\//g, '')),
   '공개 목록 코드에 레거시 store/RTDB fallback이 다시 들어왔다.');
+must(!/await\s+observeFreepassDataShadow\s*\(/.test(guestListing)
+  && /after\(\(\)\s*=>\s*observeFreepassDataShadow\(products\)\)/.test(guestListing),
+  'FreePass Data shadow 관측이 손님 응답 critical path를 다시 막고 있다.');
 
 /* 3. UI 토큰 — 숫자를 화면 파일에서 새로 만들지 않고 SHOP 정본을 쓴다 */
 must(/top:\s*\{\s*title:\s*18,\s*cobrand:\s*12\s*\}/.test(shopUi),
@@ -169,7 +172,7 @@ if (failures.length) {
 
 console.log('✓ LOCK-00 운영 사용면 / 비사용면');
 console.log('✓ LOCK-01 제품/인증 경계');
-console.log('✓ LOCK-02 ERP5 공개 데이터 경계');
+console.log('✓ LOCK-02 ERP5 공개 데이터 경계 + FreePass Data shadow 비간섭');
 console.log('✓ LOCK-03 목록·상세 디자인 토큰');
 console.log('✓ LOCK-04 URL 검색/필터/정렬 + 동일 가격행 계약');
 console.log('✓ LOCK-05 첫 화면 성능·로그인 진입점');
