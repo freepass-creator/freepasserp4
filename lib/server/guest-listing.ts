@@ -8,6 +8,7 @@ import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import { companyAlias } from '@/lib/domain/identity';
 import type { EntityRecord } from '@/lib/intake/entities';
+import { summarizeFreepassCatalogIssues } from '@/lib/domain/freepass-catalog-contract';
 
 type Rec = Record<string, unknown>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -74,7 +75,13 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
    * 관측 자체도 손님 응답을 늦추면 안 되므로 Next.js after()로 응답 완료 뒤 실행한다.
    */
   if (!providerCode && !share) {
-    after(() => observeFreepassDataShadow(products));
+    after(async () => {
+      const issues = summarizeFreepassCatalogIssues(products);
+      if (Object.values(issues).some((count) => count > 0)) {
+        console.warn('[freepass-catalog-contract]', JSON.stringify({ count: products.length, issues }));
+      }
+      await observeFreepassDataShadow(products);
+    });
   }
 
   /*
