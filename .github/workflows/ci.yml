@@ -92,6 +92,9 @@ jobs:
       - name: ERP5 canonical Firebase 경계가 잠겼는가
         run: npm run check:erp5-firebase
 
+      - name: FreePass Data 승인 release → F01/F86 handoff
+        run: npm run sim:freepass-data-sheet-handoff
+
       # ★2026-09-16 — 이 자는 CI 에 걸려 있지 «않았다». 그래서 자가진단이 깨진 채로
       #   「검사기 고장」을 외치며 exit 1 을 내고 있었는데 아무도 몰랐다.
       #   그 뒤에 진짜 사실이 숨어 있었다 — RTDB 직접 여는 파일이 24 → 0 이 됐는데
