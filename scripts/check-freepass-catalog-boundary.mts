@@ -30,6 +30,22 @@ if (!contract.includes("FREEPASS_CATALOG_CONTRACT_VERSION = '1.0'")) {
   bad += 1;
   console.error('✗ public catalog contract version changed unexpectedly');
 }
+if (/FreepassCatalogProduct\s*=\s*EntityRecord/.test(contract) || /\[key:\s*string\]/.test(contract)) {
+  bad += 1;
+  console.error('✗ FreepassCatalogProduct must be a narrow explicit public shape');
+}
+for (const forbidden of ['vehicle_price', 'fee', 'commission', 'account_number', 'provider_company_code', 'partner_code', 'source']) {
+  if (new RegExp('\\b' + forbidden + '\\??:').test(contract)) {
+    bad += 1;
+    console.error(`✗ public contract exposes forbidden internal field: ${forbidden}`);
+  }
+}
+
+const adapter = readFileSync('lib/domain/public-catalog.ts', 'utf8');
+if (!adapter.includes('): FreepassCatalogProduct {')) {
+  bad += 1;
+  console.error('✗ public catalog adapter must return FreepassCatalogProduct');
+}
 
 if (bad) process.exit(1);
 console.log('✓ FreePassERP.com public catalog boundary is explicit');
