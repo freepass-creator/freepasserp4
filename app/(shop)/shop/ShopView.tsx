@@ -2,6 +2,7 @@
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Settings2, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
+import { FREEPASS_CATALOG_CONTRACT_VERSION } from '@/lib/domain/freepass-catalog-contract';
 import { C, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { ShopQuickEditor } from '@/components/shop/ShopQuickEditor';
@@ -176,10 +177,18 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
       if (wl.key) p.set('wl', wl.key);
       const res = await fetch(`/api/catalog/feed?${p}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as {
-        products?: EntityRecord[]; agent?: { name?: string; phone?: string } | null;
+        contractVersion?: string;
+        products?: EntityRecord[];
+        agent?: { name?: string; phone?: string } | null;
       };
       if (!alive || requestId !== feedRequestRef.current) return;
       if (res.ok && body.products) {
+        if (body.contractVersion !== FREEPASS_CATALOG_CONTRACT_VERSION) {
+          console.warn('[shop/catalog-contract] version mismatch', {
+            expected: FREEPASS_CATALOG_CONTRACT_VERSION,
+            received: body.contractVersion || '',
+          });
+        }
         hasFeedRowsRef.current = true;
         setFeedError(false);
         setRows(body.products);
