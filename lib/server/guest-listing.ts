@@ -8,7 +8,7 @@ import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import { companyAlias } from '@/lib/domain/identity';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { summarizeFreepassCatalogIssues } from '@/lib/domain/freepass-catalog-contract';
+import { summarizeFreepassCatalogIssues, type FreepassCatalogProduct } from '@/lib/domain/freepass-catalog-contract';
 
 type Rec = Record<string, unknown>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -31,7 +31,7 @@ const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) 
  *   Firestore 를 두 번 읽지 않는다(그 머리말 참고).
  */
 export async function loadGuestListing(options: { providerCode?: string; share?: string } = {}): Promise<{
-  products: EntityRecord[];
+  products: FreepassCatalogProduct[];
   /** 화이트라벨 — 공급사를 지정했을 때만 그 회사 이름. */
   brand: string;
   agent: ReturnType<typeof sanitizeAgentForGuest> | null;
@@ -51,7 +51,7 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
   const src = await readFreepassCatalog({ includePartners: !!providerCode, includeUsers: !!share });
   const policies = Object.entries(src.policies).map(([policyKey, value]) => ({ ...(value || {}), _key: policyKey } as Rec));
 
-  const products: EntityRecord[] = [];
+  const products: FreepassCatalogProduct[] = [];
   for (const [docKey, p] of Object.entries(src.products)) {
     const key = S(p?._key) || S(p?.product_code) || docKey;
     if (!p || typeof p !== 'object' || dead(p)) continue;
