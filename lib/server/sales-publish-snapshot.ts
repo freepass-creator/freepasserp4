@@ -11,7 +11,15 @@ export type SalesPublishSnapshot = {
   version: typeof SALES_PUBLISH_SNAPSHOT_VERSION;
   snapshotId: string;
   capturedAt: string;
-  source: 'firestore';
+  source: 'firestore' | 'freepass-data';
+  approvedRelease?: {
+    projectionId: string;
+    releaseId: string;
+    manifestId: string;
+    inputDigest: string;
+    dataDigest: string;
+    observedAt: string;
+  };
   products: Record<string, unknown>[];
   policies: Record<string, unknown>[];
   partners: Record<string, unknown>[];
@@ -26,7 +34,7 @@ export function salesPublishMark(snapshot: Pick<SalesPublishSnapshot, 'capturedA
   return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} · ${snapshot.snapshotId}`;
 }
 
-const hashPayload = (value: Omit<SalesPublishSnapshot, 'payloadHash'>) => createHash('sha256')
+export const hashSalesPublishSnapshotPayload = (value: Omit<SalesPublishSnapshot, 'payloadHash'>) => createHash('sha256')
   .update(JSON.stringify(value))
   .digest('hex');
 
@@ -56,18 +64,31 @@ export async function captureSalesPublishSnapshot(db: any): Promise<SalesPublish
     partners,
     inventory,
   };
-  return { ...unsigned, payloadHash: hashPayload(unsigned) };
+  return { ...unsigned, payloadHash: hashSalesPublishSnapshotPayload(unsigned) };
 }
 
 export function readSalesPublishSnapshot(path: string, options: { maxAgeMs?: number } = {}): SalesPublishSnapshot {
   const value = JSON.parse(readFileSync(path, 'utf8')) as SalesPublishSnapshot;
-  if (value.version !== SALES_PUBLISH_SNAPSHOT_VERSION || value.source !== 'firestore') throw new Error(`지원하지 않는 판매 스냅샷: ${path}`);
+  if (
+    value.version !== SALES_PUBLISH_SNAPSHOT_VERSION ||
+    !['firestore', 'freepass-data'].includes(value.source)
+  ) throw new Error(`지원하지 않는 판매 스냅샷: ${path}`);
   if (!value.snapshotId || !value.capturedAt || !Array.isArray(value.products) || !Array.isArray(value.policies) || !Array.isArray(value.partners)) {
     throw new Error(`불완전한 판매 스냅샷: ${path}`);
   }
   const { payloadHash, ...unsigned } = value;
-  const actualHash = hashPayload(unsigned);
+  const actualHash = hashSalesPublishSnapshotPayload(unsigned);
   if (actualHash !== payloadHash) throw new Error(`판매 스냅샷 해시 불일치: ${path}`);
+  if (value.source === 'freepass-data') {
+    const release = value.approvedRelease;
+    const required = ['projectionId', 'releaseId', 'manifestId', 'inputDigest', 'dataDigest', 'observedAt'] as const;
+    if (!release || required.some((key) => !String(release[key] ?? '').trim())) {
+      throw new Error(`FreePass Data 승인 release 증거 누락: ${path}`);
+    }
+    if (!Number.isFinite(Date.parse(release.observedAt))) {
+      throw new Error(`FreePass Data 승인 release 시각 오류: ${path}`);
+    }
+  }
   const ageMs = Date.now() - new Date(value.capturedAt).getTime();
   const maxAgeMs = options.maxAgeMs ?? SALES_PUBLISH_MAX_AGE_MS;
   if (!Number.isFinite(ageMs) || ageMs < -5 * 60_000 || ageMs > maxAgeMs) throw new Error(`판매 스냅샷이 오래됐거나 시각이 잘못됐다: ${path}`);
