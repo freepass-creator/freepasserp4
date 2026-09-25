@@ -84,7 +84,8 @@ assert.equal(materialized.source, 'freepass-data');
 assert.equal(materialized.releaseAuthority, 'LEGACY_VERIFIED_BRIDGE');
 assert.deepEqual(materialized.approvedRelease, approvedRelease);
 assert.equal(materialized.inventory.registered, 1);
-assert.equal('depositRuleViolations' in materialized.inventory, false);
+assert.equal('depositRuleViolations' in materialized.inventory, true);
+assert.equal((materialized.inventory as any).depositRuleViolations, 0);
 assert.ok(materialized.payloadHash);
 
 assert.throws(
