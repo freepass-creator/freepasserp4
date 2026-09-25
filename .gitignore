@@ -61,3 +61,7 @@ ianka/lib/wonja/
 data/new-car/option-packs.json
 data/new-car/kia-options.json
 data/new-car/hyundai-options.json
+
+# 손오공 공급사 시트 전체 백업 — 임차인 실명·수수료·단가가 들어 있다. 공개 저장소에 올리지 않는다(2026-09-26).
+# sonokong/scripts/손오공-재고시트.mjs 가 로컬에 쓰는 것은 그대로 둔다.
+sonokong/backups/
