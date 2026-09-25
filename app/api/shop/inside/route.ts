@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { resolveProduct } from '@/lib/server/guest-quote';
+import { homeIsShop } from '@/lib/whitelabel';
 import { providerNameMap } from '@/lib/domain/identity';
 import { withUnit } from '@/lib/format';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -44,6 +45,11 @@ const SOURCE_NAME: Record<string, string> = {
 };
 
 export async function GET(request: Request) {
+  const host = S(request.headers.get('host')).split(':')[0].toLowerCase();
+  if (homeIsShop(host)) {
+    return NextResponse.json({ error: '페이지를 찾지 못했습니다' }, { status: 404 });
+  }
+
   const code = S(new URL(request.url).searchParams.get('code'));
   if (!code) return NextResponse.json({ error: 'code 가 없습니다' }, { status: 400 });
 
