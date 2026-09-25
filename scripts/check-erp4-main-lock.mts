@@ -32,6 +32,7 @@ const guestListing = read('lib/server/guest-listing.ts');
 const guestQuote = read('lib/server/guest-quote.ts');
 const shopStatus = read('app/api/shop/status/route.ts');
 const quickRoute = read('app/api/shop/quick/route.ts');
+const insideRoute = read('app/api/shop/inside/route.ts');
 const catalogBoundary = read('lib/server/freepass-catalog.ts');
 const query = read('lib/shop/query.ts');
 const pkg = read('package.json');
@@ -40,7 +41,7 @@ const lockDoc = read('docs/ERP4-MAIN-STABILITY-LOCK.md');
 const surfaceLock = read('docs/ERP4-MAIN-SURFACE-LOCK.md');
 const wlFrame = read('components/WhitelabelFrame.tsx');
 
-console.log('\nERP4 MAIN Stability Lock\n');
+console.log('\nFreePassERP.com v1 Stability Lock\n');
 
 
 /* 0. 운영 사용면 — 쓰는 것과 안 쓰는 것을 명시적으로 잠근다. */
@@ -53,7 +54,11 @@ must(/NOT_MAIN — ERP닷컴 메인에서는 안 쓰는 것/.test(surfaceLock)
   && /`\/login`/.test(surfaceLock)
   && /`\/finder`/.test(surfaceLock)
   && /`\/settlement\/\*\*`/.test(surfaceLock)
-  && /`\/erp5\/\*\*`/.test(surfaceLock),
+  && /`\/erp5\/\*\*`/.test(surfaceLock)
+  && /`\/estimate\/\*\*`/.test(surfaceLock)
+  && /`\/sonogong`/.test(surfaceLock)
+  && /`\/welrix`/.test(surfaceLock)
+  && /`\/spring`/.test(surfaceLock),
   'ERP닷컴 메인 비사용 경로 구분이 사라졌다.');
 must(/찾기 → 비교 → 상세 확인/.test(surfaceLock),
   'ERP4 MAIN의 사용자 흐름 잠금이 바뀌었다.');
@@ -129,6 +134,11 @@ must(!/shop-quick-store|writeShopQuick|readShopQuick/.test(quickRoute)
   && /status:\s*410/.test(quickRoute)
   && /wl\.quick \?\? null/.test(quickRoute),
   '레거시 quick API가 두 번째 UI 설정 원장으로 다시 활성화됐다.');
+
+/* 내부 보조 API는 White Label 호스트에서 열리지 않는다. */
+must(/homeIsShop\(host\)/.test(insideRoute)
+  && /status:\s*404/.test(insideRoute),
+  '내부 shop API가 White Label 호스트에서 다시 노출된다.');
 
 /* 3. UI 토큰 — 숫자를 화면 파일에서 새로 만들지 않고 SHOP 정본을 쓴다 */
 must(/top:\s*\{\s*title:\s*18,\s*cobrand:\s*12\s*\}/.test(shopUi),
@@ -207,4 +217,4 @@ console.log('✓ LOCK-02 FreePass Catalog 단일 소비 경계 + shadow 비간�
 console.log('✓ LOCK-03 목록·상세 디자인 토큰');
 console.log('✓ LOCK-04 URL 검색/필터/정렬 + 동일 가격행 계약');
 console.log('✓ LOCK-05 첫 화면 성능·로그인 진입점');
-console.log('\n✅ ERP4 MAIN 안정화 기준선 유지\n');
+console.log('\n✅ FreePassERP.com v1 안정화 기준선 유지\n');
