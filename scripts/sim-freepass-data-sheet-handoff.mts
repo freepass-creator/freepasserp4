@@ -28,7 +28,10 @@ const snapshot = {
   products: [product],
   policies: [],
   partners: [],
-  inventory: inventoryCountSnapshot([product])
+  inventory: {
+    ...inventoryCountSnapshot([product]),
+    depositRuleViolations: 0
+  }
 };
 
 const approvedRelease = {
@@ -81,6 +84,7 @@ assert.equal(materialized.source, 'freepass-data');
 assert.equal(materialized.releaseAuthority, 'LEGACY_VERIFIED_BRIDGE');
 assert.deepEqual(materialized.approvedRelease, approvedRelease);
 assert.equal(materialized.inventory.registered, 1);
+assert.equal('depositRuleViolations' in materialized.inventory, false);
 assert.ok(materialized.payloadHash);
 
 assert.throws(
@@ -128,6 +132,63 @@ assert.throws(
   /inventory mismatch/
 );
 
+
+const badDepositUnsigned = {
+  ...unsigned,
+  snapshot: {
+    ...snapshot,
+    inventory: {
+      ...snapshot.inventory,
+      depositRuleViolations: 1
+    }
+  }
+};
+assert.throws(
+  () => materializeFreePassDataSalesSnapshot({
+    ...badDepositUnsigned,
+    approvedRelease: {
+      ...approvedRelease,
+      dataDigest: hashFreePassDataSheetPayload({
+        products: badDepositUnsigned.snapshot.products,
+        policies: badDepositUnsigned.snapshot.policies,
+        partners: badDepositUnsigned.snapshot.partners,
+        inventory: badDepositUnsigned.snapshot.inventory
+      })
+    },
+    manifest: {
+      ...manifest,
+      dataDigest: hashFreePassDataSheetPayload({
+        products: badDepositUnsigned.snapshot.products,
+        policies: badDepositUnsigned.snapshot.policies,
+        partners: badDepositUnsigned.snapshot.partners,
+        inventory: badDepositUnsigned.snapshot.inventory
+      })
+    },
+    handoffHash: hashFreePassDataSheetHandoff({
+      ...badDepositUnsigned,
+      approvedRelease: {
+        ...approvedRelease,
+        dataDigest: hashFreePassDataSheetPayload({
+          products: badDepositUnsigned.snapshot.products,
+          policies: badDepositUnsigned.snapshot.policies,
+          partners: badDepositUnsigned.snapshot.partners,
+          inventory: badDepositUnsigned.snapshot.inventory
+        })
+      },
+      manifest: {
+        ...manifest,
+        dataDigest: hashFreePassDataSheetPayload({
+          products: badDepositUnsigned.snapshot.products,
+          policies: badDepositUnsigned.snapshot.policies,
+          partners: badDepositUnsigned.snapshot.partners,
+          inventory: badDepositUnsigned.snapshot.inventory
+        })
+      }
+    })
+  }),
+  /deposit rule violation/
+);
+
 const dir = await mkdtemp(path.join(tmpdir(), 'freepass-data-handoff-'));
 try {
   const file = path.join(dir, 'snapshot.json');
@@ -153,4 +214,4 @@ try {
   await rm(dir, { recursive: true, force: true });
 }
 
-console.log('PASS freepass-data sheet handoff: 7/7');
+console.log('PASS freepass-data sheet handoff: 8/8');
