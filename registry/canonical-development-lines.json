@@ -1,0 +1,103 @@
+{
+  "schema": "ai-core-canonical-development-lines/v1",
+  "updated_at": "2026-09-26",
+  "policy": {
+    "one_canonical_line_per_concern": true,
+    "historical_assets_must_not_claim_authority": true,
+    "superseded_branches_are_not_runtime_authority": true
+  },
+  "lines": [
+    {
+      "id": "scope",
+      "canonical_entrypoint": "AGENTS.md",
+      "canonical_roots": [
+        "AGENTS.md"
+      ],
+      "notes": [
+        "이 저장소가 하는 일·안 하는 일의 정본은 AGENTS.md 맨 위 「현재 정본 범위」다. CLAUDE.md 는 그 범위 안에서만 유효하다."
+      ]
+    },
+    {
+      "id": "schedules",
+      "canonical_entrypoint": "docs/예약작업-지도.md",
+      "canonical_roots": [
+        "docs/예약작업-지도.md"
+      ]
+    },
+    {
+      "id": "whitelabel",
+      "canonical_entrypoint": "docs/화이트라벨-공통과-개별.md",
+      "canonical_roots": [
+        "docs/화이트라벨-공통과-개별.md",
+        "lib/whitelabel.ts"
+      ]
+    },
+    {
+      "id": "design-locked",
+      "canonical_entrypoint": "docs/DESIGN_CONFIRMED_SHOP.md",
+      "canonical_roots": [
+        "docs/DESIGN_CONFIRMED_SHOP.md",
+        "scripts/check-design-locked.mts"
+      ]
+    },
+    {
+      "id": "ui-main",
+      "canonical_entrypoint": "docs/ERP4-MAIN-UI-STANDARD.md",
+      "canonical_roots": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    }
+  ],
+  "repository_guards": {
+    "workflow_refs": {
+      "allow": [
+        "main"
+      ],
+      "why": "예약·운영 작업은 main 에서만 돈다. 2026-09-25 점검: 매시간 발행기가 main 에 없는 커밋 3c98e1b6 을 checkout 해 돈다."
+    },
+    "pull_request": {
+      "max_behind_main": 30,
+      "single_open_pr_per_canonical_path": true,
+      "why": "묵은 가지(460개)·같은 정본을 동시에 고치는 PR 이 갈림의 원인이다.",
+      "allowed_head_patterns": [
+        "^work/[a-z0-9._-]+/[a-z0-9._-]+$",
+        "^dependabot/",
+        "^renovate/"
+      ],
+      "forbidden_actor_prefixes": [
+        "gpt/",
+        "claude/",
+        "codex/",
+        "cursor/",
+        "gemini/",
+        "chatgpt/",
+        "work/gpt/",
+        "work/claude/",
+        "work/codex/",
+        "work/cursor/",
+        "work/gemini/"
+      ],
+      "legacy_head_exceptions": [
+        {
+          "branch": "claude/ai-core-integration-standardization-ntmoli",
+          "expires": "2026-10-07",
+          "reason": "이 Claude 세션에 배정된 가지 이름이라 세션이 바꿀 수 없다."
+        }
+      ]
+    }
+  },
+  "baseline": [
+    {
+      "guard": "workflow-ref-pin",
+      "path": ".github/workflows/erp5-ssot-refresh.yml",
+      "expires": "2026-10-31",
+      "reason": "AGENTS.md 예외: FreePass Data production cutover 전 임시 bridge. cutover 때 main checkout 으로 되돌리거나 워크플로를 끈다."
+    },
+    {
+      "guard": "workflow-ref-pin",
+      "path": ".github/workflows/manual-erp5-full-sync-once.yml",
+      "expires": "2026-10-31",
+      "reason": "같은 bridge 의 수동 1회 동기. cutover 때 함께 정리."
+    }
+  ]
+}

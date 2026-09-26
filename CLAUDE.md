@@ -1,6 +1,7 @@
 # freepasserp4 규격 (SSOT) — 손대기 전 필독. 이거 어기면 매번 틀어진다.
 
 > ## 현재 정본 범위 — 2026-09-26 (최우선)
+> AI 공통 지시문의 정본은 `AGENTS.md` 다 — 이 파일과 다르면 `AGENTS.md` 가 맞다(정본 등록부 `registry/canonical-development-lines.json` `scope`).
 > FreePassERP.com v1 = **White Label 공개 상품 조회/검색**. FreePass Data를 consumer boundary로 받아 표시하는 프로젝트다.
 > **F01/F86, 견적기, 내부 ERP 로그인/업무화면, 접수·정산 시스템, 차종마스터/원천수집, ERP5 migration은 이 프로젝트의 신규 개발 범위가 아니다. RTDB는 신규 사용·재활성화 금지.**
 > 아래의 과거 ERP4/F01/F86/RTDB/내부업무 설명은 역사적 맥락으로만 읽고 신규 구현 근거로 사용하지 않는다.
