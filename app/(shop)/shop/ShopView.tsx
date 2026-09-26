@@ -553,8 +553,8 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
             {/*
               ⚠⚠ **여기 칩 줄 맨 앞에 「설정 눈금」 단추가 있었다. 뺐다**(사장님 2026-09-11
                 「퀵필터 조정하는 거 **설정페이지 맨 하단 섹션 하나** 주고 거기서 **펼쳐서** 넣게 해주자」).
-              ★고치는 문은 이제 **웹 조건칸 맨 아래 구역**이다(`quickTail`). 폰 조건 시트는 그대로 둔다.
-                칩 줄은 손님이 «조건»을 읽는 줄이라 첫 자리부터 조건이 선다.
+              ★runtime 빠른조건 편집은 폐기했다. 빠른조건 구성은 `lib/whitelabel.ts` 채널 설정과
+                기본값 한 길만 정본으로 쓴다. 칩 줄은 손님이 «조건»을 읽는 줄이라 첫 자리부터 조건이 선다.
             */}
             {quick.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} mark={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
