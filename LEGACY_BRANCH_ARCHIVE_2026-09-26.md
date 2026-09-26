@@ -1,0 +1,125 @@
+# Legacy branch archive — 2026-09-26
+
+Canonical development branch: `main`.
+
+This branch preserves all non-main branch heads that existed immediately before cleanup.
+Each head is also retained as a parent of the archive anchor commit chain, so the old histories remain reachable from this single archive branch.
+
+Main at archive time: `f86329ffb2c0137f644a935dad8ae7f0188fec77`
+Archived branch count: 113
+
+| Branch | Head SHA |
+|---|---|
+| `audit/erp4-live-stability-20260919` | `4bca466b2e9867f021370f836a29b84d4dd87873` |
+| `auto/freepass-data-sheet-handoff-20260925` | `8640bc0db89b3c35169fe5b108c6f3d459b55800` |
+| `c-adoption/core-contract-receipt` | `4d6311a3d97412bd8a4b598b9ea03df602f76c4c` |
+| `c-adoption/core-contract-shadow` | `b4f7d50ef0109c7bb2ac8d8889aefd0ed7e4e886` |
+| `chatgpt/audit62-central-log` | `6b4ee2fe86967e4920087e9424d5316cb3991119` |
+| `chatgpt/erp4-ui-revision-wire-20260920` | `47f6c4e32fc93dd957fa614214977fceaa6cf72c` |
+| `chatgpt/erp5-downstream-canonical-20260918` | `a414788f8854f5097928da5bfdcf942e2afc4b1b` |
+| `chatgpt/ssot-single-writer-automation-20260918` | `fd2a3a6101e73de16a0de01a352a1c01a02b61c3` |
+| `chore/capture-live-ui-20260919` | `5628ecb269ae97d944065c7b2d6d6c2649f2828c` |
+| `chore/f01-f86-layout-contract-20260921` | `d4c057a9a8d938acf908b5eb834a37c9415a1bee` |
+| `claude/cool-volta-ucaov6` | `e8a2f0c6e297a20ef21ef9329c5b41c2349375c3` |
+| `claude/f86-on-gate` | `5978ab68732425d3df661900f7093df934b38610` |
+| `claude/f86-on-gate-color-fixes-final` | `308511563d8e8f56dbd94f715469d8ae7ed9171a` |
+| `claude/f86-on-gate-color-ssot` | `d635f8c87c3840a6956184b4d20f99dd968b6138` |
+| `claude/f86-on-gate-color-ssot-2` | `a0b5a66c94870ea843a7a9f15daba986954c788e` |
+| `claude/f86-on-gate-fields-fix` | `0c4ec76b605c3ac50efcd9483dd2294bd89e22c0` |
+| `claude/f86-peer-spec-transplant` | `a6843cdbb8fac53f922b726f89ecf1a976c88a20` |
+| `claude/f86-pink-color-ssot` | `cf940df642edf315adbc6da2b4134fbad53da160` |
+| `codex/contract-status-erp5-main` | `85892eb972c6a1bf230889d8e1dc41f1f282a040` |
+| `codex/erp5-publication-gate` | `f2e180da8c134891647d3be8184fe8a7dac90283` |
+| `codex/erp5-publication-gate-current` | `eafbd88e43b1b4e5bacab858a2e0c65845956e5f` |
+| `codex/erp5-separate-source` | `218ec08d4f8774491f9fa3ee48a853ec73fe394b` |
+| `codex/esign-live-vehicle-input` | `322813b57de10f24a6e62a324e2289f63c1788c1` |
+| `codex/f01-f86-engine-baseline-20260921` | `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e` |
+| `codex/f01-f86-online-20260921` | `3c5e88bfd75c44a4e6497ca2b66f8a973a8c9f79` |
+| `codex/f01-f86-online-readonly-20260921` | `7a26c44bd92a133cbcac63000e1ef7196e252c7c` |
+| `codex/f86-fixed-tabs-engine2-20260921` | `c3838708b84527db241f1985c140a3ec6ece6bff` |
+| `codex/f86-fixed-tabs-final-20260921` | `4b0c3b831d981ff344cd07dcf2ca699b4d42b29b` |
+| `codex/fix-g70-shooting-engine-20260922` | `3c98e1b616392ee6d47e07c7d08dbb30320f67ff` |
+| `codex/freepass-inventory-contract` | `c01944f6175573a5fa07d1ae711cf0dfe6096aa4` |
+| `codex/freepass-option-source-audit` | `16b565a20ff7cf1725167f99f465fe8e8c385057` |
+| `codex/freepass-source-snapshot-engine` | `b9aa39297899bb5b1c7d49dca8532dbd0603bc8f` |
+| `codex/photo-download-production` | `4f6a889bb0edfcef72c65da62e2ec5ba3df70f35` |
+| `codex/photo-link-emergency` | `83f02e9f0bfff20b66ef2471403e44d8e641a1fc` |
+| `codex/photo-projection-integrated` | `0347a287ad461094564a607d8218ac99bb795fc9` |
+| `codex/remove-rtdb` | `8760e06e0f855491f403abcae80bf2b4f46ef7d5` |
+| `codex/restore-canonical-whitelabel` | `861895b10478ee6e79aaf2eb2241bd59f15a2dce` |
+| `codex/rtdb-cost-guard` | `e786a604f71d2c890afa498bacd7fec58c79dbdf` |
+| `codex/rtdb-cutover-current` | `c92bec3e34e3cd4e59fb8e96276f0d1dddd50575` |
+| `codex/sonogong-firestore-classification-20260921` | `b4f18c88625a187485442bca166846cb91d52a31` |
+| `codex/sonogong-firestore-engine-20260921` | `e41733443ec90db515df28b3a48c9364128191d5` |
+| `codex/sonogong-sheet-photo-20260923` | `acd97be170cb03bb938d8c2de4672f1b08975e15` |
+| `codex/sonogong-sheet-photo-pin-20260923` | `9fb8c2f4c4ffc6ee0432ccda7a1a4ca37c88d1a8` |
+| `codex/source-registry-current` | `fed7cce004668170919d26bb128619ed4c248122` |
+| `codex/source-registry-v2` | `ca067d9a55965ba68a819060ae2abc1d13af5926` |
+| `codex/supplier-filter-column` | `0b5c04764b502d6c5294b7b814e04d9d82abe1f1` |
+| `cursor/finder-maker-model-only-5ff3` | `bdfb3b63e1622c93b11fe82295890c34df0b2830` |
+| `cursor/orphan-branch-watch-dfa4` | `4a8f7f5b7fb82d749fa30230b1bc5d9eb6f58a09` |
+| `cursor/setup-cloud-environment-e758` | `18d3661cd310567fe21b18f5fc83182b2f1ba7d7` |
+| `cursor/transplant-atom-pipeline-dfa4` | `0680acde8817a43040b7925c02613134ced6d779` |
+| `cursor/trim-scope-gate-impact-audit-dfa4` | `a7882529fd1b5d1f8993bf2a59d621c2f0296526` |
+| `cursor/unify-provided-sheet-adapters-4cdd` | `56a735b7d74ddcec49f1bc5802998cf01c517be8` |
+| `cursor/whitelabel-docs-drift-and-thin-channels-7557` | `54aa62884e4c22008b0906a8faf72068e902a953` |
+| `deploy/mobile-ctrl-40` | `5d18c9eab65c9d8db195fe259bfac56dcab2caab` |
+| `deploy/restore-current-ui` | `40ceffaae389ebcd0f53754bf7295e837d9ac855` |
+| `docs/ai-core-ui-reference-20260919` | `0c14a1e58babfaa36362aa02eb053ad3d05ca0f4` |
+| `feat/erp5-login` | `9ac70843a1114558c53ebcfa5994e6e264e61c89` |
+| `feat/estimate-agent-view` | `dc311ba1203b73d4a57308367897ece68fcaed0d` |
+| `feat/estimate-new-used` | `aa5f0c23af6bb29dfb56b92b987546f10eff3971` |
+| `feat/freepass-channel` | `65adfda837f643727cfa1eb86d00cef78392e83a` |
+| `feat/freepass-homelink` | `1c3747a78dda258a0e1169528a41284714cae0a4` |
+| `feat/sales-sheet-manual` | `ebd6f2f495c0412e4691406b993b57d98fbec053` |
+| `feat/settlement-firestore-cockpit` | `39381dba75137cec9e2a41572b1ee45d0c333177` |
+| `feat/settlement-station` | `32cdbee3932fe4b639f1acaed8f2e526bec3bf63` |
+| `feat/shop-storefront` | `4168689e3f5abbe04c6607b65dba2bb1eabb80b6` |
+| `feat/spring-atom-monitor` | `162260c478788d5678df19d90ca7f6c3361da457` |
+| `feat/used-residual-amounts` | `b65b3c43f4116340563063a683ec736d68854c48` |
+| `feat/whitelabel-catalog` | `61a840247c73c94c2849ff817faec34be59fdbd8` |
+| `fix/drive-backup-failopen` | `5cbab4fa487fdd86643230b3e09fa5c9e0d2eaf5` |
+| `fix/f01-f86-tab-contract-20260921` | `c332e41f1b84e22a6665cb96a9cebf016e3f6e92` |
+| `fix/f86-tab-title-colon-bug` | `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60` |
+| `fix/photo-all-sources-20260919` | `c5da9bfb6560a4306fa77a04abd02a10e7d576fe` |
+| `fix/rp012-deposit-column` | `d1fa2d5e2e035ca7e3f5cab873f8186ba2138835` |
+| `fix/settlement-f04-consolidation` | `ee36e95d2498d116b30baf99038977e82d67838c` |
+| `fix/shop-filter-plate` | `f0733fff8aee037b94a3444fd78783fecd115d59` |
+| `fix/sonokong-rent-plate-classification` | `fbfa1082e0513cf924baf457a017b32096d5d5e8` |
+| `gpt/deposit-display-contract-20260919` | `8b75219091acef229651fd16054107e8226e85de` |
+| `perf/work-thumb-optimize` | `e6b5eeb30552f7465637a24cb82ddab7229dcf07` |
+| `release/uniauto` | `c28566e81a8e1fa6b0cecf58dff7aaf3c3b79ffe` |
+| `rescue/settlement-4cols` | `f72e0c0ca72422a7395ec7b6445fe70bd96ed958` |
+| `save/local-artifacts` | `37ef674371747e28f1e97ccb0a4e5bd759780e5a` |
+| `save/local-codex-restore-canonical-whitelabel` | `f1101583a85275223d9d5b5c23cbe7de86f0626a` |
+| `save/local-feat-cherry-picks` | `be6a4cb4942ea6c6d836d6d14aed34810fa425cf` |
+| `save/local-feat-spring-atom-monitor` | `595abaefa72ab0d5ee14414fec8998fd632ec488` |
+| `save/local-root-redirect` | `62f49aa2a659487c71507ff76dbcc0ef42192d25` |
+| `save/orphan-1400f324` | `1400f3241764da04ec73989c1f6b62f07361c3f0` |
+| `save/orphan-850463e9` | `850463e994c40ff139a9c045e01ed4b6f61ba0c5` |
+| `save/rtdb-scope-doc` | `04eddf95b57acfc534193e8ba622fec64315f9ab` |
+| `save/stash-0` | `15496a0bccb690f457ab099980f9d595025be606` |
+| `save/stash-1` | `f6538e6d912528761e2d379f81d3ce7f652b957d` |
+| `save/stash-2` | `e9f93cc289d71edce7796a351567645967d0a152` |
+| `save/stash-3` | `7120a3b2bcd47fc82c796413bd98d1af35140df0` |
+| `save/stash-4` | `b9a5992cec1c4ee0ecabc66bcfb51daed2083b72` |
+| `save/stash-5` | `e2fcd24c2618e4767ba340a11684420d941e1f34` |
+| `save/stash-6` | `cf7d0369ef4d65865d7e623764958c568e5557e8` |
+| `save/stash-7` | `2e5b8ca0d4b08a935bda9cab4194cb3bdb529e34` |
+| `save/stash-8` | `f9e51725bfea1198df69e10556f04a06b9665cab` |
+| `save/stash-9` | `8cb531de87f5e08b831e61e986e50b3e5c1d685e` |
+| `save/uncommitted-scripts` | `64676f8a516cc95704a66333f7dcb26c1d5e879c` |
+| `save/wt-deploy-9a70768` | `06061cad5e308cd23eb35046b2c31f79fb5dbb0c` |
+| `save/wt-deploy-31c8280` | `3e3c527b05fd3b880b5c32ff3f56fcff2dd2ea14` |
+| `save/wt-deploy-cce3ce0` | `c7ee69fc24d17cbf721e9334f4605fefb63c48b6` |
+| `save/wt-deploy-photo` | `08edb62534356f37a87ea0f162d902279e26d1ee` |
+| `save/wt-deploy-supplier` | `28397b237772a0ece8a04dc6346ea1fe857c84bf` |
+| `save/wt-main-wt` | `686cc054cec43cf6e6ee6a83348028d63b3ff7b5` |
+| `save/wt-newcar` | `5acdd75e732f63d3e339674552d70308d27c2efe` |
+| `save/wt-source-registry` | `0c5bddef5d512488c2981786eb631ff6122785cf` |
+| `save/wt-test` | `bbbd27000eb5caebe7b3ee87dd1b3e9251849c44` |
+| `save/wt-ui-deploy` | `ac56305624f11c20bea54e92c147abe3f16b4e73` |
+| `work/claude/subscription-sample-pdf` | `08d7754ef13fcbe5c643fe6c098575c513475aa4` |
+| `work/freepass/fix-main-quick-canon` | `fd7c8358d932c5ac8c699635371c697b7f60dc81` |
+| `work/gpt/uiux-b3-consumer-map-20260919` | `de8823e754ee9f03c9d95a62fc031610cb7859c2` |
+| `work/2026-08-09-trim-esign` | `2b881847efeadba00e4b32353769fa179f2cc04f` |
