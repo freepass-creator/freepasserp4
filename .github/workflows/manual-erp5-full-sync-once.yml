@@ -1,9 +1,7 @@
 name: One-time F86 publish from validated ERP5 pin
 
 on:
-  push:
-    paths:
-      - '.github/workflows/manual-erp5-full-sync-once.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,6 +13,7 @@ concurrency:
 
 jobs:
   publish-f86:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
