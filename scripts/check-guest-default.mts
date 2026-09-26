@@ -219,16 +219,18 @@ must(/isShopHome\(host[\s\S]{0,600}?GUEST_HEADER,\s*'1'/.test(mw), '첫 화면 �
   '표시를 안 붙이면 겉은 가게인데 메타·JSON-LD 는 업무동 것이 실려 나갑니다(2026-09-06 사고).');
 
 /*
- * 대표 ERP 도메인에서 은퇴 업무 URL은 공개 상품 홈으로 정리한다.
- * 화이트라벨 도메인까지 대표 홈으로 보내면 채널 홈을 삼키므로 대상 호스트를 분리한다.
+ * 은퇴 업무 URL은 공개 상품 호스트의 «같은 브랜드 홈»으로 정리한다.
+ * 대표 ERP는 ERP 홈으로, 채널 도메인은 그 채널 홈으로 돌아가야 한다.
  */
 must(/MAIN_PUBLIC_HOSTS/.test(mw) && /RETIRED_MAIN_PATHS/.test(mw),
   '대표 ERP 도메인의 은퇴 업무 경로 목록',
   '은퇴한 /login·/finder 등이 404 또는 업무 화면으로 흩어질 수 있습니다.');
-must(/MAIN_PUBLIC_HOSTS\.has\(host\) && isRetiredMainPath\(request\.nextUrl\.pathname\)/.test(mw)
-  && /new URL\('https:\/\/freepasserp\.com\/'\)/.test(mw),
-  '대표 ERP 도메인 은퇴 경로 → canonical 홈',
-  '화이트라벨 도메인을 삼키지 않으면서 대표 ERP의 옛 URL을 홈으로 정리해야 합니다.');
+must(/MAIN_PUBLIC_HOSTS\.has\(host\) \|\| homeIsShop\(host\)/.test(mw)
+  && /home\.pathname = '\/'/.test(mw)
+  && /home\.search = ''/.test(mw)
+  && /NextResponse\.redirect\(home, 308\)/.test(mw),
+  '공개 상품 호스트 은퇴 경로 → 같은 브랜드 canonical 홈',
+  '대표 ERP와 White Label 모두 옛 업무 URL을 각자의 상품 홈으로 정리해야 합니다.');
 
 const layout = read('app/layout.tsx');
 const guestBranchAt = layout.indexOf('{guestSurface ? (');
