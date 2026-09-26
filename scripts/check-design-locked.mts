@@ -576,13 +576,14 @@ const brandCi = read('components/brand-ci.tsx');
 /** 채널 표 — 라벨 세 갈래(표준·채널·공급)의 이름이 여기 산다(`labelKind`). */
 const wlTable = read('lib/whitelabel.ts');
 /*
- * 폰 상세 머리띠는 «채널 간판»이 아니라 「상품 상세」다 — 손님은 이미 그 가게 안이다.
- * 그리고 차번은 «차명 뒤»에 붙는다 — 제 줄을 하나 차지하지도, 머리띠로 올라가지도 않는다.
+ * 웹·폰 상세 머리띠는 «채널 간판»이 아니라 같은 「상품 상세」 역할명이다.
+ * 화면 폭이 아니라 페이지 역할로 가르고, 차번은 «차명 뒤»에 붙인다.
  */
-must(/mobile && headerLead \? headerLead :/.test(wlFrame)
+must(/\{headerLead \? headerLead : \(/.test(wlFrame)
+  && !/mobile && headerLead \? headerLead/.test(wlFrame)
   && /headerLead=\{<ShopDetailLead \/>\}/.test(read('app/q/[code]/ShopDetailView.tsx'))
   && />상품 상세</.test(shopDetail),
-  '폰 상세 머리띠가 다시 채널 간판을 들었습니다 — 상세는 「상품 상세」입니다.',
+  '웹·폰 상세 머리띠 역할명이 갈렸습니다 — 상세는 모두 「상품 상세」입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-1');
 
 /*
