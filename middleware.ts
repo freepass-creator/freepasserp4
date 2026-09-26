@@ -66,11 +66,8 @@ export function middleware(request: NextRequest) {
    * 채널 전용 도메인은 대상이 아니다. 그쪽의 제품 진입 규칙을 이 도메인 정리가 삼키면
    * 화이트라벨 홈까지 우리 대표 홈으로 빠질 수 있으므로 호스트를 먼저 좁힌다.
    */
-  if ((MAIN_PUBLIC_HOSTS.has(host) || homeIsShop(host)) && isRetiredMainPath(request.nextUrl.pathname)) {
-    const home = request.nextUrl.clone();
-    home.pathname = '/';
-    home.search = '';
-    return NextResponse.redirect(home, 308);
+  if (MAIN_PUBLIC_HOSTS.has(host) && isRetiredMainPath(request.nextUrl.pathname)) {
+    return NextResponse.redirect(new URL('https://freepasserp.com/'), 308);
   }
 
   /*
