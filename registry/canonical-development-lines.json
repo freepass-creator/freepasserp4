@@ -77,13 +77,7 @@
         "work/cursor/",
         "work/gemini/"
       ],
-      "legacy_head_exceptions": [
-        {
-          "branch": "claude/ai-core-integration-standardization-ntmoli",
-          "expires": "2026-10-07",
-          "reason": "이 Claude 세션에 배정된 가지 이름이라 세션이 바꿀 수 없다."
-        }
-      ]
+      "legacy_head_exceptions": []
     }
   },
   "baseline": [
