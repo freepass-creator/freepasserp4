@@ -46,9 +46,11 @@ assert.match(listing, /includePartners: !!providerCode/);
 assert.match(listing, /includeUsers: !!share/);
 assert.doesNotMatch(listing, /firebaseAdminApp|firestore-ref-shim|\.ref\(/);
 assert.match(feed, /Cache-Control': 'no-store'/);
-assert.match(source('lib/server/guest-quote.ts'), /readWhitelabelCatalogFromErp5/);
-assert.match(source('lib/server/guest-quote.ts'), /includeUsers: true/);
-assert.doesNotMatch(source('lib/server/guest-quote.ts'), /firebaseAdminApp|firestore-ref-shim|\.ref\(/);
+const guestQuote = source('lib/server/guest-quote.ts');
+assert.match(guestQuote, /from ['"]@\/lib\/server\/freepass-catalog['"]/);
+assert.match(guestQuote, /const readGuestCatalog = cache\(readFreepassCatalog\)/);
+assert.match(guestQuote, /readGuestCatalog\(\{ includeUsers: true \}\)/);
+assert.doesNotMatch(guestQuote, /readWhitelabelCatalogFromErp5|firebaseAdminApp|firestore-ref-shim|\.ref\(/);
 
 assert.match(shop, /fetch\(`\/api\/catalog\/feed\?\$\{p\}`/);
 assert.match(shop, /window\.setInterval\([\s\S]*45_000/);
