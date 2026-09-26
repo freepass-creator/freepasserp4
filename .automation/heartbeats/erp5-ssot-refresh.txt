@@ -1,1 +1,1 @@
-2026-09-21T09:36:00+09:00 manual canonical refresh requested from ChatGPT
+2026-09-26T20:46:00+09:00 post-cleanup canonical refresh requested after cancelled archive-triggered sync
